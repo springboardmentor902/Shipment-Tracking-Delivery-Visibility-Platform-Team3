@@ -42,6 +42,9 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/**").permitAll()
 
+                        // CORS preflight must never be authenticated
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+
                         // ---- Shipment module ----
                         // Creating a shipment is a business action: business clients and
                         // logistics operators only. Customers can read but never create.
