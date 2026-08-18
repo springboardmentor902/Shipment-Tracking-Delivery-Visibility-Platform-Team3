@@ -1,9 +1,6 @@
 package com.shiptrack.shiptrack_pro.controller;
  
-import com.shiptrack.shiptrack_pro.dto.LoginRequest;
-import com.shiptrack.shiptrack_pro.dto.LoginResponse;
-import com.shiptrack.shiptrack_pro.dto.RegisterRequest;
-import com.shiptrack.shiptrack_pro.dto.UserResponse;
+import com.shiptrack.shiptrack_pro.dto.*;
 import com.shiptrack.shiptrack_pro.service.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -28,5 +25,17 @@ public class AuthController {
     public ResponseEntity<LoginResponse> login(@Valid @RequestBody LoginRequest request) {
         LoginResponse response = userService.loginUser(request);
         return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/forgot-password")
+    public ResponseEntity<ForgotPasswordResponse> forgotPassword(
+            @Valid @RequestBody ForgotPasswordRequest request) {
+        return ResponseEntity.ok(userService.forgotPassword(request));
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<Void> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
+        userService.resetPassword(request);
+        return ResponseEntity.noContent().build();
     }
 }

@@ -1,11 +1,14 @@
 package com.shiptrack.shiptrack_pro.controller;
 
 import com.shiptrack.shiptrack_pro.dto.CancelShipmentRequest;
+import com.shiptrack.shiptrack_pro.dto.AssignOperatorRequest;
 import com.shiptrack.shiptrack_pro.dto.ShipmentRequest;
 import com.shiptrack.shiptrack_pro.dto.ShipmentResponse;
 import com.shiptrack.shiptrack_pro.dto.ShipmentUpdateRequest;
 import com.shiptrack.shiptrack_pro.dto.StatusUpdateRequest;
+import com.shiptrack.shiptrack_pro.dto.TrackingEventResponse;
 import com.shiptrack.shiptrack_pro.service.ShipmentService;
+import com.shiptrack.shiptrack_pro.service.TrackingService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -23,6 +26,7 @@ import org.springframework.web.bind.annotation.*;
 public class ShipmentController {
 
     private final ShipmentService shipmentService;
+    private final TrackingService trackingService;
 
     /**
      * Create a shipment.
@@ -51,6 +55,12 @@ public class ShipmentController {
         return ResponseEntity.ok(shipmentService.getShipmentById(id));
     }
 
+    @GetMapping("/{id}/tracking")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<java.util.List<TrackingEventResponse>> getShipmentTracking(@PathVariable Long id) {
+        return ResponseEntity.ok(trackingService.getShipmentEvents(id));
+    }
+
     /** Fetch a single shipment by its public tracking number. */
     @GetMapping("/tracking/{trackingNumber}")
     public ResponseEntity<ShipmentResponse> getShipmentByTrackingNumber(@PathVariable String trackingNumber) {
@@ -74,6 +84,13 @@ public class ShipmentController {
     public ResponseEntity<ShipmentResponse> updateStatus(@PathVariable Long id,
                                                          @Valid @RequestBody StatusUpdateRequest request) {
         return ResponseEntity.ok(shipmentService.updateStatus(id, request));
+    }
+
+    @PatchMapping("/{id}/operator")
+    @PreAuthorize("hasAnyRole('ADMINISTRATOR', 'LOGISTICS_OPERATOR')")
+    public ResponseEntity<ShipmentResponse> assignOperator(@PathVariable Long id,
+                                                            @Valid @RequestBody AssignOperatorRequest request) {
+        return ResponseEntity.ok(shipmentService.assignOperator(id, request));
     }
 
     /**

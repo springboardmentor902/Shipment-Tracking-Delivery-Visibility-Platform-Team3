@@ -7,7 +7,9 @@ import com.shiptrack.shiptrack_pro.entity.ShipmentPriority;
 import com.shiptrack.shiptrack_pro.entity.ShipmentStatus;
 import com.shiptrack.shiptrack_pro.entity.User;
 import com.shiptrack.shiptrack_pro.repository.ShipmentRepository;
+import com.shiptrack.shiptrack_pro.repository.TrackingEventRepository;
 import com.shiptrack.shiptrack_pro.repository.UserRepository;
+import com.shiptrack.shiptrack_pro.entity.TrackingEvent;
 import com.shiptrack.shiptrack_pro.security.CurrentUserService;
 import com.shiptrack.shiptrack_pro.security.Role;
 import com.shiptrack.shiptrack_pro.service.ShipmentService;
@@ -38,6 +40,7 @@ public class ShipmentServiceImpl implements ShipmentService {
     private static final int TRACKING_MAX_ATTEMPTS = 10;
 
     private final ShipmentRepository shipmentRepository;
+    private final TrackingEventRepository trackingEventRepository;
     private final UserRepository userRepository;
     private final CurrentUserService currentUserService;
     private final SecureRandom random = new SecureRandom();
@@ -83,7 +86,9 @@ public class ShipmentServiceImpl implements ShipmentService {
             shipment.addPackage(toPackageEntity(packageRequest, packageNo++));
         }
 
-        return toResponse(shipmentRepository.save(shipment));
+        Shipment savedShipment = shipmentRepository.save(shipment);
+        logEvent(savedShipment, ShipmentStatus.CREATED, savedShipment.getPickupAddress(), null, actor);
+        return toResponse(savedShipment);
     }
 
     /* ===================== READ ===================== */
@@ -245,7 +250,27 @@ public class ShipmentServiceImpl implements ShipmentService {
             shipment.setActualDeliveryDate(LocalDate.now());
         }
 
-        return toResponse(shipmentRepository.save(shipment));
+        Shipment savedShipment = shipmentRepository.save(shipment);
+        logEvent(savedShipment, target, null, request.getNotes(), actor);
+        return toResponse(savedShipment);
+    }
+
+    @Override
+    @Transactional
+    public ShipmentResponse assignOperator(Long id, AssignOperatorRequest request) {
+        Shipment shipment = findOrThrow(id);
+        User actor = currentUserService.getCurrentUser();
+        Role actorRole = Role.valueOf(actor.getRole());
+        if (actorRole != Role.ADMINISTRATOR && actorRole != Role.LOGISTICS_OPERATOR) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "Only ADMINISTRATOR or LOGISTICS_OPERATOR can assign an operator");
+        }
+
+        User operator = resolveOperator(request.getOperatorId());
+        shipment.setAssignedOperator(operator);
+        Shipment savedShipment = shipmentRepository.save(shipment);
+        logEvent(savedShipment, savedShipment.getStatus(), null, "assigned to " + operator.getFullName(), actor);
+        return toResponse(savedShipment);
     }
 
     /* ===================== CANCEL ===================== */
@@ -277,7 +302,9 @@ public class ShipmentServiceImpl implements ShipmentService {
         shipment.setCancelledAt(LocalDateTime.now());
         shipment.setCancellationReason(request.getReason());
 
-        return toResponse(shipmentRepository.save(shipment));
+        Shipment savedShipment = shipmentRepository.save(shipment);
+        logEvent(savedShipment, ShipmentStatus.CANCELLED, null, request.getReason(), actor);
+        return toResponse(savedShipment);
     }
 
     /* ===================== authorization helpers ===================== */
@@ -340,6 +367,16 @@ public class ShipmentServiceImpl implements ShipmentService {
                     "User " + operatorId + " is not a LOGISTICS_OPERATOR");
         }
         return operator;
+    }
+
+    private void logEvent(Shipment shipment, ShipmentStatus status, String location, String notes, User actor) {
+        trackingEventRepository.save(TrackingEvent.builder()
+                .shipment(shipment)
+                .status(status)
+                .location(location)
+                .notes(notes)
+                .recordedBy(actor)
+                .build());
     }
 
     /* ===================== parsing helpers ===================== */

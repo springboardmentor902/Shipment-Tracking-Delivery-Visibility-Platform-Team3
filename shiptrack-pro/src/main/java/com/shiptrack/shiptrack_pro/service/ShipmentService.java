@@ -1,6 +1,7 @@
 package com.shiptrack.shiptrack_pro.service;
 
 import com.shiptrack.shiptrack_pro.dto.CancelShipmentRequest;
+import com.shiptrack.shiptrack_pro.dto.AssignOperatorRequest;
 import com.shiptrack.shiptrack_pro.dto.ShipmentRequest;
 import com.shiptrack.shiptrack_pro.dto.ShipmentResponse;
 import com.shiptrack.shiptrack_pro.dto.ShipmentUpdateRequest;
@@ -23,4 +24,6 @@ public interface ShipmentService {
     ShipmentResponse updateStatus(Long id, StatusUpdateRequest request);
 
     ShipmentResponse cancelShipment(Long id, CancelShipmentRequest request);
+
+    ShipmentResponse assignOperator(Long id, AssignOperatorRequest request);
 }

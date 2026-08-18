@@ -42,6 +42,10 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/**").permitAll()
 
+                        // spring forwards failures to /error, if this is blocked the real
+                        // status code gets replaced by an empty 403
+                        .requestMatchers("/error").permitAll()
+
                         // CORS preflight must never be authenticated
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
@@ -64,6 +68,9 @@ public class SecurityConfig {
                         .hasAnyRole("BUSINESS_CLIENT", "LOGISTICS_OPERATOR", "ADMINISTRATOR")
 
                         // Lifecycle transitions are operational work.
+                        .requestMatchers(HttpMethod.PATCH, "/api/shipments/*/operator")
+                        .hasAnyRole("LOGISTICS_OPERATOR", "ADMINISTRATOR")
+
                         .requestMatchers(HttpMethod.PATCH, "/api/shipments/**")
                         .hasAnyRole("LOGISTICS_OPERATOR", "ADMINISTRATOR")
 
@@ -71,8 +78,37 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.DELETE, "/api/shipments/**")
                         .hasAnyRole("BUSINESS_CLIENT", "LOGISTICS_OPERATOR", "ADMINISTRATOR")
 
-                        .requestMatchers("/api/tracking/**", "/api/routes/**")
+                        // ---- Tracking timeline + live location ----
+                        // anyone can see the timeline with just a tracking number
+                        .requestMatchers(HttpMethod.GET, "/api/tracking/*").permitAll()
+
+                        // only the rider or admin can push a location
+                        .requestMatchers(HttpMethod.POST, "/api/tracking/location")
                         .hasAnyRole("LOGISTICS_OPERATOR", "ADMINISTRATOR")
+
+                        // ---- Routes ----
+                        .requestMatchers(HttpMethod.POST, "/api/routes")
+                        .hasAnyRole("LOGISTICS_OPERATOR", "ADMINISTRATOR")
+                        .requestMatchers(HttpMethod.GET, "/api/routes/*").authenticated()
+
+                        // ---- Live delivery monitoring ----
+                        .requestMatchers(HttpMethod.GET, "/api/monitoring/active")
+                        .hasAnyRole("LOGISTICS_OPERATOR", "SUPPORT_AGENT", "ADMINISTRATOR")
+
+                        // ---- Profile ----
+                        .requestMatchers(HttpMethod.GET, "/api/users/me", "/api/users/me/activity").authenticated()
+                        .requestMatchers(HttpMethod.PUT, "/api/users/me").authenticated()
+                        .requestMatchers(HttpMethod.POST, "/api/users/me/password").authenticated()
+
+                        // ---- Business accounts ----
+                        .requestMatchers(HttpMethod.POST, "/api/business-accounts")
+                        .hasAnyRole("BUSINESS_CLIENT", "ADMINISTRATOR")
+                        .requestMatchers(HttpMethod.GET, "/api/business-accounts/me")
+                        .hasAnyRole("BUSINESS_CLIENT", "ADMINISTRATOR")
+                        .requestMatchers(HttpMethod.PUT, "/api/business-accounts/me")
+                        .hasAnyRole("BUSINESS_CLIENT", "ADMINISTRATOR")
+                        .requestMatchers(HttpMethod.GET, "/api/business-accounts")
+                        .hasRole("ADMINISTRATOR")
 
                         .requestMatchers(HttpMethod.POST, "/api/pod/**")
                         .hasRole("LOGISTICS_OPERATOR")

@@ -6,7 +6,9 @@ import com.shiptrack.shiptrack_pro.entity.ShipmentPriority;
 import com.shiptrack.shiptrack_pro.entity.ShipmentStatus;
 import com.shiptrack.shiptrack_pro.entity.User;
 import com.shiptrack.shiptrack_pro.repository.ShipmentRepository;
+import com.shiptrack.shiptrack_pro.repository.TrackingEventRepository;
 import com.shiptrack.shiptrack_pro.repository.UserRepository;
+import com.shiptrack.shiptrack_pro.entity.TrackingEvent;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
@@ -26,6 +28,7 @@ public class DemoDataSeeder implements CommandLineRunner {
 
     private final UserRepository userRepository;
     private final ShipmentRepository shipmentRepository;
+    private final TrackingEventRepository trackingEventRepository;
     private final PasswordEncoder passwordEncoder;
 
     @Value("${app.seed.demo-data:true}")
@@ -136,6 +139,45 @@ public class DemoDataSeeder implements CommandLineRunner {
         s9.addPackage(pkg(1, "Books - 4 titles", "3.700", "30", "24", "20", 1, "1850.00", false));
         shipmentRepository.save(s9);
 
+        if (trackingEventRepository.count() == 0) {
+            seedEvent(s1, ShipmentStatus.CREATED, "Hyderabad hub", "17.440081", "78.348915", "order received", business);
+            seedEvent(s1, ShipmentStatus.CREATED, "Hyderabad hub", "17.440081", "78.348915", "waiting for pickup", business);
+
+            seedEvent(s2, ShipmentStatus.CREATED, "Hyderabad hub", "17.440081", "78.348915", "order received", business);
+            seedEvent(s2, ShipmentStatus.PICKED_UP, "Gachibowli, Hyderabad", "17.440497", "78.348917", "parcel picked up", operator);
+
+            seedEvent(s3, ShipmentStatus.CREATED, "Medchal hub, Hyderabad", "17.628647", "78.482785", "order received", business);
+            seedEvent(s3, ShipmentStatus.PICKED_UP, "Medchal hub, Hyderabad", "17.628647", "78.482785", "parcel picked up", operator);
+            seedEvent(s3, ShipmentStatus.IN_TRANSIT, "Pune transit hub", "18.520430", "73.856744", "moving to Chennai", operator);
+
+            seedEvent(s4, ShipmentStatus.CREATED, "Kondapur hub, Hyderabad", "17.462232", "78.363489", "order received", operator);
+            seedEvent(s4, ShipmentStatus.PICKED_UP, "Kondapur hub, Hyderabad", "17.462232", "78.363489", "parcel picked up", operator);
+            seedEvent(s4, ShipmentStatus.IN_TRANSIT, "Bengaluru hub", "12.971599", "77.594566", "reached delivery city", operator);
+            seedEvent(s4, ShipmentStatus.OUT_FOR_DELIVERY, "MG Road, Bengaluru", "12.975230", "77.606865", "out for delivery", operator);
+
+            seedEvent(s5, ShipmentStatus.CREATED, "Hyderabad hub", "17.440081", "78.348915", "order received", business);
+            seedEvent(s5, ShipmentStatus.PICKED_UP, "Hyderabad hub", "17.440081", "78.348915", "parcel picked up", operator);
+            seedEvent(s5, ShipmentStatus.IN_TRANSIT, "Pune transit hub", "18.520430", "73.856744", "moving to Noida", operator);
+            seedEvent(s5, ShipmentStatus.DELIVERED, "Sector 18, Noida", "28.570633", "77.321901", "delivered to receiver", operator);
+
+            seedEvent(s6, ShipmentStatus.CREATED, "Medchal hub, Hyderabad", "17.628647", "78.482785", "order received", business);
+            seedEvent(s6, ShipmentStatus.PICKED_UP, "Medchal hub, Hyderabad", "17.628647", "78.482785", "parcel picked up", operator);
+            seedEvent(s6, ShipmentStatus.IN_TRANSIT, "Hyderabad hub", "17.440081", "78.348915", "reached delivery city", operator);
+            seedEvent(s6, ShipmentStatus.DELIVERED, "Jubilee Hills, Hyderabad", "17.432584", "78.407062", "delivered to receiver", operator);
+
+            seedEvent(s7, ShipmentStatus.CREATED, "Kondapur hub, Hyderabad", "17.462232", "78.363489", "order received", business);
+            seedEvent(s7, ShipmentStatus.PICKED_UP, "Kondapur hub, Hyderabad", "17.462232", "78.363489", "parcel picked up", operator);
+            seedEvent(s7, ShipmentStatus.IN_TRANSIT, "Kolkata transit hub", "22.572646", "88.363895", "reached delivery city", operator);
+            seedEvent(s7, ShipmentStatus.FAILED_DELIVERY, "Park Street, Kolkata", "22.554759", "88.352791", "receiver unavailable", operator);
+
+            seedEvent(s8, ShipmentStatus.CREATED, "Hyderabad hub", "17.440081", "78.348915", "order received", business);
+            seedEvent(s8, ShipmentStatus.CANCELLED, "Hyderabad hub", "17.440081", "78.348915", "customer asked to cancel", business);
+
+            seedEvent(s9, ShipmentStatus.CREATED, "Ahmedabad hub", "23.022505", "72.571362", "order received", operator);
+            seedEvent(s9, ShipmentStatus.PICKED_UP, "Ahmedabad hub", "23.022505", "72.571362", "parcel picked up", operator);
+            seedEvent(s9, ShipmentStatus.IN_TRANSIT, "Hyderabad hub", "17.440081", "78.348915", "moving to receiver", operator);
+        }
+
         System.out.println("Demo data added: " + shipmentRepository.count() + " shipments");
     }
 
@@ -193,5 +235,18 @@ public class DemoDataSeeder implements CommandLineRunner {
                 .declaredValue(new BigDecimal(declaredValue))
                 .fragile(fragile)
                 .build();
+    }
+
+    private void seedEvent(Shipment shipment, ShipmentStatus status, String location,
+                           String latitude, String longitude, String notes, User recordedBy) {
+        trackingEventRepository.save(TrackingEvent.builder()
+                .shipment(shipment)
+                .status(status)
+                .location(location)
+                .latitude(new BigDecimal(latitude))
+                .longitude(new BigDecimal(longitude))
+                .notes(notes)
+                .recordedBy(recordedBy)
+                .build());
     }
 }

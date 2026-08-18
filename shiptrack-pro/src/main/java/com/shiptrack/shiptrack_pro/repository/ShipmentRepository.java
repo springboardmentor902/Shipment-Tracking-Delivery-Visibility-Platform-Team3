@@ -10,6 +10,8 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.Optional;
+import java.util.Collection;
+import java.util.List;
 
 public interface ShipmentRepository extends JpaRepository<Shipment, Long> {
 
@@ -28,6 +30,8 @@ public interface ShipmentRepository extends JpaRepository<Shipment, Long> {
     Page<Shipment> findByAssignedOperatorAndStatus(User assignedOperator, ShipmentStatus status, Pageable pageable);
 
     Page<Shipment> findByStatus(ShipmentStatus status, Pageable pageable);
+
+    List<Shipment> findByStatusIn(Collection<ShipmentStatus> statuses);
 
     // customer is the receiver, not the creator, so match on email
     Page<Shipment> findByReceiverEmailIgnoreCase(String receiverEmail, Pageable pageable);
