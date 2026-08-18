@@ -50,51 +50,6 @@ function ParcelIcon() {
   )
 }
 
-function DeliveryTruck() {
-  return (
-    <svg
-      className="w-full max-w-xl"
-      viewBox="0 0 640 390"
-      fill="none"
-      role="img"
-      aria-labelledby="truck-title truck-description"
-    >
-      <title id="truck-title">ShipTrack delivery truck carrying parcels</title>
-      <desc id="truck-description">A hand-drawn blue delivery truck with ShipTrack lettering on the side panel.</desc>
-      <ellipse cx="317" cy="326" rx="247" ry="17" fill="#cbd5e1" opacity=".7" />
-      <path className="road-dashes" d="M77 351h71m49 0h71m49 0h71m49 0h71" stroke="#94a3b8" strokeWidth="8" strokeLinecap="round" strokeDasharray="42 30" />
-      <g className="truck-bob" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M102 261V105c0-13 11-24 24-24h294c14 0 25 11 25 25v155" fill="#dbeafe" stroke="#1e40af" strokeWidth="7" />
-        <path d="M130 114h238v132H130z" fill="#2563eb" stroke="#1e40af" strokeWidth="7" />
-        <path d="M368 156h92l61 62v43H368z" fill="#93c5fd" stroke="#1e40af" strokeWidth="7" />
-        <path d="M460 156v62h61" stroke="#1e40af" strokeWidth="7" />
-        <path d="M481 174h25c8 0 15 7 15 15v16h-40z" fill="#eff6ff" stroke="#1e40af" strokeWidth="5" />
-        <path d="M94 246h438c13 0 24 11 24 24v16c0 12-10 22-22 22H103c-12 0-22-10-22-22v-13c0-15 11-27 26-27h31" fill="#2563eb" stroke="#1e40af" strokeWidth="7" />
-        <path d="M160 183h172" stroke="#60a5fa" strokeWidth="4" opacity=".8" />
-        <text x="158" y="206" fill="#fff" fontFamily="ui-sans-serif, system-ui, sans-serif" fontSize="37" fontWeight="700" letterSpacing="-1">
-          ShipTrack
-        </text>
-        <rect x="162" y="40" width="84" height="58" rx="5" fill="#fbbf24" stroke="#a16207" strokeWidth="5" transform="rotate(-5 162 40)" />
-        <path d="m203 39-5 59m-35-31 80-7" stroke="#fef3c7" strokeWidth="5" />
-        <rect x="250" y="30" width="74" height="68" rx="5" fill="#fb923c" stroke="#9a3412" strokeWidth="5" transform="rotate(5 250 30)" />
-        <path d="m287 31 3 67m-38-35 72 3" stroke="#ffedd5" strokeWidth="5" />
-        <rect x="329" y="47" width="58" height="51" rx="5" fill="#fbbf24" stroke="#a16207" strokeWidth="5" transform="rotate(-3 329 47)" />
-        <path d="m358 47-3 51m-25-26h54" stroke="#fef3c7" strokeWidth="4" />
-        <g className="truck-wheel">
-          <circle cx="187" cy="306" r="42" fill="#334155" stroke="#0f172a" strokeWidth="7" />
-          <circle cx="187" cy="306" r="17" fill="#e2e8f0" stroke="#1e293b" strokeWidth="6" />
-          <path d="M187 276v60m-30-30h60" stroke="#94a3b8" strokeWidth="5" />
-        </g>
-        <g className="truck-wheel">
-          <circle cx="459" cy="306" r="42" fill="#334155" stroke="#0f172a" strokeWidth="7" />
-          <circle cx="459" cy="306" r="17" fill="#e2e8f0" stroke="#1e293b" strokeWidth="6" />
-          <path d="M459 276v60m-30-30h60" stroke="#94a3b8" strokeWidth="5" />
-        </g>
-        <path d="M535 262h22" stroke="#fbbf24" strokeWidth="7" />
-      </g>
-    </svg>
-  )
-}
 
 function Feature({ icon, title, children, className = '' }) {
   return (
@@ -156,8 +111,8 @@ export default function Home() {
               </Link>
             </div>
           </div>
-          <div className="rounded-2xl border border-slate-200 bg-white px-3 py-7 shadow-sm sm:px-7">
-            <DeliveryTruck />
+          <div>
+            <img src='src/images/image.png'/>
           </div>
         </section>
 
