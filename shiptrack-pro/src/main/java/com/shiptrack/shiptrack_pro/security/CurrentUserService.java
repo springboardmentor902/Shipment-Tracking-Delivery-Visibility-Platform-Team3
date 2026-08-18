@@ -39,6 +39,14 @@ public class CurrentUserService {
                         HttpStatus.UNAUTHORIZED, "Authenticated user no longer exists: " + email));
     }
 
+    // true when a real logged in user is behind the request
+    public boolean isLoggedIn() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        return authentication != null
+                && authentication.isAuthenticated()
+                && !"anonymousUser".equals(authentication.getPrincipal());
+    }
+
     /** The authenticated user's role as an enum. */
     public Role getCurrentRole() {
         return Role.valueOf(getCurrentUser().getRole());

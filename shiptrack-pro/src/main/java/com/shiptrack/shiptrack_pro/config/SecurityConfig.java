@@ -51,6 +51,9 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/shipments")
                         .hasAnyRole("BUSINESS_CLIENT", "LOGISTICS_OPERATOR")
 
+                        // anyone can track a shipment with the tracking number, no login needed
+                        .requestMatchers(HttpMethod.GET, "/api/shipments/tracking/**").permitAll()
+
                         // Reading is open to every authenticated role; the service layer
                         // scopes results so each user only sees shipments tied to them.
                         .requestMatchers(HttpMethod.GET, "/api/shipments/**")

@@ -134,7 +134,11 @@ public class ShipmentServiceImpl implements ShipmentService {
         Shipment shipment = shipmentRepository.findByTrackingNumber(trackingNumber)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
                         "Shipment not found with tracking number: " + trackingNumber));
-        assertCanView(shipment);
+
+        // public tracking - check access only if someone is logged in
+        if (currentUserService.isLoggedIn()) {
+            assertCanView(shipment);
+        }
         return toResponse(shipment);
     }
 
