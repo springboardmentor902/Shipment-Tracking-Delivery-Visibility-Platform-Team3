@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { extractErrorMessage } from '../services/api'
 import TextField from '../components/TextField'
+import PublicHeader from '../components/PublicHeader'
 
 export default function Login() {
   const { login } = useAuth()
@@ -53,7 +54,9 @@ export default function Login() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center px-4 py-12">
+    <div className="min-h-screen">
+      <PublicHeader />
+      <main className="flex min-h-[calc(100vh-4rem)] items-center justify-center px-4 py-12">
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900">ShipTrack Pro</h1>
@@ -134,6 +137,7 @@ export default function Login() {
           </p>
         </form>
       </div>
+      </main>
     </div>
   )
 }

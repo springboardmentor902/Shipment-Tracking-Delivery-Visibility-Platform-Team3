@@ -13,11 +13,12 @@ import ResetPassword from './pages/ResetPassword'
 import BusinessAccount from './pages/BusinessAccount'
 import NotFound from './pages/NotFound'
 import ProtectedRoute from './routes/ProtectedRoute'
+import Home from './pages/Home'
 
 export default function App() {
   return (
     <Routes>
-      <Route path="/" element={<Navigate to="/shipments" replace />} />
+      <Route path="/" element={<Home />} />
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
       <Route path="/track" element={<Tracking />} />

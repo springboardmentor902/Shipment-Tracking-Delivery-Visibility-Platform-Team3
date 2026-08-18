@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import { ROLE_OPTIONS } from '../services/authService'
 import { extractErrorMessage } from '../services/api'
 import TextField from '../components/TextField'
+import PublicHeader from '../components/PublicHeader'
 
 const INITIAL = {
   fullName: '',
@@ -86,7 +87,9 @@ export default function Register() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center px-4 py-12">
+    <div className="min-h-screen">
+      <PublicHeader />
+      <main className="flex min-h-[calc(100vh-4rem)] items-center justify-center px-4 py-12">
       <div className="w-full max-w-lg">
         <div className="mb-8 text-center">
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Create your account</h1>
@@ -207,6 +210,7 @@ export default function Register() {
           </p>
         </form>
       </div>
+      </main>
     </div>
   )
 }

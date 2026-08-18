@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import TextField from '../components/TextField'
 import { extractErrorMessage } from '../services/api'
 import { authService } from '../services/authService'
+import PublicHeader from '../components/PublicHeader'
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState('')
@@ -30,7 +31,9 @@ export default function ForgotPassword() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center px-4 py-12">
+    <div className="min-h-screen">
+      <PublicHeader />
+      <main className="flex min-h-[calc(100vh-4rem)] items-center justify-center px-4 py-12">
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
           <Link to="/login" className="text-sm font-medium text-brand-600 hover:text-brand-700">
@@ -86,6 +89,7 @@ export default function ForgotPassword() {
           </p>
         </form>
       </div>
-    </main>
+      </main>
+    </div>
   )
 }

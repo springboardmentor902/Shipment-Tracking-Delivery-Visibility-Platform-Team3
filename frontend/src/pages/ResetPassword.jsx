@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import TextField from '../components/TextField'
 import { extractErrorMessage } from '../services/api'
 import { authService } from '../services/authService'
+import PublicHeader from '../components/PublicHeader'
 
 export default function ResetPassword() {
   const [searchParams] = useSearchParams()
@@ -53,7 +54,9 @@ export default function ResetPassword() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center px-4 py-12">
+    <div className="min-h-screen">
+      <PublicHeader />
+      <main className="flex min-h-[calc(100vh-4rem)] items-center justify-center px-4 py-12">
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
           <Link to="/login" className="text-sm font-medium text-brand-600 hover:text-brand-700">
@@ -105,6 +108,7 @@ export default function ResetPassword() {
           </button>
         </form>
       </div>
-    </main>
+      </main>
+    </div>
   )
 }

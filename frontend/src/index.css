@@ -3,7 +3,54 @@
 @tailwind utilities;
 
 @layer base {
+  html {
+    scroll-padding-top: 5rem;
+  }
+
   body {
     @apply bg-slate-100 text-slate-900 antialiased;
+  }
+}
+
+@keyframes truck-bob {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}
+
+@keyframes truck-wheel {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes road-dashes {
+  to {
+    stroke-dashoffset: -72;
+  }
+}
+
+.truck-bob {
+  animation: truck-bob 2.6s ease-in-out infinite;
+}
+
+.truck-wheel {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: truck-wheel 3.2s linear infinite;
+}
+
+.road-dashes {
+  animation: road-dashes 1.2s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .truck-bob,
+  .truck-wheel,
+  .road-dashes {
+    animation: none;
   }
 }
