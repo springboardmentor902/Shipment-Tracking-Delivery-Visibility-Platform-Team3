@@ -11,5 +11,7 @@ public interface UserService {
     UserResponse registerUser(RegisterRequest request);
     LoginResponse loginUser(LoginRequest request);
     List<UserResponse> getAllUsers();
+    UserResponse getUserProfile(Long userId);
     UserResponse updateUserRole(Long userId, String newRole);
+    UserResponse updateUserStatus(Long userId, String status);
 }
