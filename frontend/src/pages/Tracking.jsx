@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import StatusBadge from '../components/StatusBadge'
+import TrackingTimeline from '../components/TrackingTimeline'
 import { extractErrorMessage } from '../services/api'
-import { SHIPMENT_STATUSES, shipmentService } from '../services/shipmentService'
+import { trackingService } from '../services/trackingService'
 
 function formatDate(value) {
   if (!value) return '—'
@@ -11,7 +12,7 @@ function formatDate(value) {
 
 export default function Tracking() {
   const [trackingNumber, setTrackingNumber] = useState('')
-  const [shipment, setShipment] = useState(null)
+  const [result, setResult] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -25,9 +26,9 @@ export default function Tracking() {
 
     setLoading(true)
     setError('')
-    setShipment(null)
+    setResult(null)
     try {
-      setShipment(await shipmentService.getByTracking(value))
+      setResult(await trackingService.lookup(value))
     } catch (err) {
       if (err.response?.status === 404) setError('No shipment was found for that tracking number.')
       else setError(extractErrorMessage(err, 'Could not retrieve tracking information.'))
@@ -36,7 +37,7 @@ export default function Tracking() {
     }
   }
 
-  const currentIndex = shipment ? SHIPMENT_STATUSES.indexOf(shipment.status) : -1
+  const shipment = result?.shipment
 
   return (
     <main className="flex min-h-screen items-center justify-center px-4 py-12">
@@ -104,38 +105,12 @@ export default function Tracking() {
               </div>
             </dl>
 
-            <ol className="mt-6 space-y-3" aria-label="Shipment status timeline">
-              {SHIPMENT_STATUSES.filter((status) => status !== 'CANCELLED').map((status) => {
-                const index = SHIPMENT_STATUSES.indexOf(status)
-                const isCurrent = status === shipment.status
-                const isComplete = currentIndex >= index && shipment.status !== 'FAILED_DELIVERY'
-                return (
-                  <li key={status} className="flex items-center gap-3 text-sm">
-                    <span
-                      aria-hidden="true"
-                      className={`h-2.5 w-2.5 rounded-full ${
-                        isCurrent || isComplete ? 'bg-brand-600' : 'bg-slate-200'
-                      }`}
-                    />
-                    <span className={isCurrent ? 'font-semibold text-slate-900' : 'text-slate-500'}>
-                      {status.replaceAll('_', ' ')}
-                    </span>
-                  </li>
-                )
-              })}
-              {shipment.status === 'FAILED_DELIVERY' && (
-                <li className="flex items-center gap-3 text-sm font-semibold text-red-700">
-                  <span aria-hidden="true" className="h-2.5 w-2.5 rounded-full bg-red-600" />
-                  Delivery attempt failed
-                </li>
-              )}
-              {shipment.status === 'CANCELLED' && (
-                <li className="flex items-center gap-3 text-sm font-semibold text-slate-700">
-                  <span aria-hidden="true" className="h-2.5 w-2.5 rounded-full bg-slate-500" />
-                  Shipment cancelled
-                </li>
-              )}
-            </ol>
+            <div className="mt-6 border-t border-slate-100 pt-5">
+              <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-slate-500">
+                Tracking history
+              </h3>
+              <TrackingTimeline events={result?.events} />
+            </div>
           </section>
         )}
       </div>

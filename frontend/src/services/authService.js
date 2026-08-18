@@ -11,4 +11,6 @@ export const ROLE_OPTIONS = [
 export const authService = {
   register: (payload) => api.post('/auth/register', payload).then((res) => res.data),
   login: (credentials) => api.post('/auth/login', credentials).then((res) => res.data),
+  forgotPassword: (payload) => api.post('/auth/forgot-password', payload).then((res) => res.data),
+  resetPassword: (payload) => api.post('/auth/reset-password', payload).then((res) => res.data),
 }

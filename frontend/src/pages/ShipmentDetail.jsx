@@ -2,15 +2,25 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import AppLayout from '../components/AppLayout'
 import StatusBadge from '../components/StatusBadge'
+import TextField from '../components/TextField'
+import TrackingTimeline from '../components/TrackingTimeline'
 import { useAuth } from '../context/AuthContext'
 import { extractErrorMessage } from '../services/api'
 import { ALLOWED_STATUS_TRANSITIONS, CAN_CHANGE_STATUS_ROLES, shipmentService } from '../services/shipmentService'
+
+const EMPTY_ROUTE = {
+  originAddress: '',
+  destinationAddress: '',
+  waypoints: '',
+  distanceKm: '',
+  expectedDurationMinutes: '',
+}
 
 function Row({ label, value }) {
   return (
     <div className="flex justify-between gap-6 py-2 text-sm">
       <span className="text-slate-500">{label}</span>
-      <span className="text-right font-medium text-slate-900">{value || '—'}</span>
+      <span className="text-right font-medium text-slate-900">{value ?? '—'}</span>
     </div>
   )
 }
@@ -18,8 +28,12 @@ function Row({ label, value }) {
 export default function ShipmentDetail() {
   const { id } = useParams()
   const { user } = useAuth()
+  const canManageOperations = ['LOGISTICS_OPERATOR', 'ADMINISTRATOR'].includes(user?.role)
 
   const [shipment, setShipment] = useState(null)
+  const [events, setEvents] = useState([])
+  const [route, setRoute] = useState(null)
+  const [operators, setOperators] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [actionError, setActionError] = useState('')
@@ -29,12 +43,56 @@ export default function ShipmentDetail() {
   const [busy, setBusy] = useState(false)
   const [showCancel, setShowCancel] = useState(false)
   const [cancelReason, setCancelReason] = useState('')
+  const [routeForm, setRouteForm] = useState(EMPTY_ROUTE)
+  const [operatorId, setOperatorId] = useState('')
+  const [locationForm, setLocationForm] = useState({ location: '', latitude: '', longitude: '', notes: '' })
+
+  const loadTracking = useCallback(async () => {
+    try {
+      setEvents(await shipmentService.getTrackingEvents(id))
+    } catch (err) {
+      if (err.response?.status !== 404) {
+        setActionError(extractErrorMessage(err, 'Could not load tracking history.'))
+      }
+    }
+  }, [id])
+
+  const loadRoute = useCallback(async () => {
+    try {
+      const savedRoute = await shipmentService.getRoute(id)
+      setRoute(savedRoute)
+      setRouteForm({
+        originAddress: savedRoute.originAddress || '',
+        destinationAddress: savedRoute.destinationAddress || '',
+        waypoints: savedRoute.waypoints || '',
+        distanceKm: savedRoute.distanceKm ?? '',
+        expectedDurationMinutes: savedRoute.expectedDurationMinutes ?? '',
+      })
+    } catch (err) {
+      if (err.response?.status === 404) {
+        setRoute(null)
+      } else {
+        setActionError(extractErrorMessage(err, 'Could not load route details.'))
+      }
+    }
+  }, [id])
+
+  const loadOperators = useCallback(async () => {
+    if (user?.role !== 'ADMINISTRATOR') return
+    try {
+      const users = await shipmentService.getAdminUsers()
+      setOperators(users.filter((item) => item.role === 'LOGISTICS_OPERATOR'))
+    } catch (err) {
+      setActionError(extractErrorMessage(err, 'Could not load operators.'))
+    }
+  }, [user?.role])
 
   const load = useCallback(async () => {
     setLoading(true)
     setError('')
     try {
       setShipment(await shipmentService.getById(id))
+      await Promise.all([loadTracking(), loadRoute(), loadOperators()])
     } catch (err) {
       const status = err.response?.status
       if (status === 403) setError('You do not have access to this shipment.')
@@ -43,13 +101,12 @@ export default function ShipmentDetail() {
     } finally {
       setLoading(false)
     }
-  }, [id])
+  }, [id, loadOperators, loadRoute, loadTracking])
 
   useEffect(() => {
     load()
   }, [load])
 
-  // CANCELLED is reachable only through the cancel endpoint, so keep it out of the dropdown.
   const transitionOptions = (ALLOWED_STATUS_TRANSITIONS[shipment?.status] || []).filter(
     (status) => status !== 'CANCELLED'
   )
@@ -76,6 +133,7 @@ export default function ShipmentDetail() {
       setNextStatus('')
       setStatusNote('')
       setNotice(`Status moved to ${updated.status.replaceAll('_', ' ')}.`)
+      await loadTracking()
     } catch (err) {
       setActionError(extractErrorMessage(err))
     } finally {
@@ -97,8 +155,110 @@ export default function ShipmentDetail() {
       setShowCancel(false)
       setCancelReason('')
       setNotice('Shipment cancelled.')
+      await loadTracking()
     } catch (err) {
       setActionError(extractErrorMessage(err))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function handleAssignOperator(event) {
+    event.preventDefault()
+    if (!operatorId) {
+      setActionError('Enter or select an operator id.')
+      return
+    }
+    setBusy(true)
+    setActionError('')
+    setNotice('')
+    try {
+      const updated = await shipmentService.assignOperator(id, Number(operatorId))
+      setShipment(updated)
+      setOperatorId('')
+      setNotice('Operator assigned.')
+    } catch (err) {
+      setActionError(extractErrorMessage(err, 'Could not assign the operator.'))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  function handleRouteChange(event) {
+    const { name, value } = event.target
+    setRouteForm((previous) => ({ ...previous, [name]: value }))
+    setActionError('')
+    setNotice('')
+  }
+
+  async function handleRouteSubmit(event) {
+    event.preventDefault()
+    if (!routeForm.originAddress.trim() || !routeForm.destinationAddress.trim()) {
+      setActionError('Origin and destination are required.')
+      return
+    }
+    if (!routeForm.distanceKm || !routeForm.expectedDurationMinutes) {
+      setActionError('Distance and expected duration are required.')
+      return
+    }
+
+    setBusy(true)
+    setActionError('')
+    setNotice('')
+    try {
+      const savedRoute = await shipmentService.saveRoute({
+        shipmentId: Number(id),
+        originAddress: routeForm.originAddress.trim(),
+        destinationAddress: routeForm.destinationAddress.trim(),
+        waypoints: routeForm.waypoints.trim(),
+        distanceKm: Number(routeForm.distanceKm),
+        expectedDurationMinutes: Number(routeForm.expectedDurationMinutes),
+      })
+      setRoute(savedRoute)
+      setNotice(route ? 'Route updated.' : 'Route created.')
+    } catch (err) {
+      setActionError(extractErrorMessage(err, 'Could not save the route.'))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  function handleLocationChange(event) {
+    const { name, value } = event.target
+    setLocationForm((previous) => ({ ...previous, [name]: value }))
+    setActionError('')
+    setNotice('')
+  }
+
+  async function handleLocationSubmit(event) {
+    event.preventDefault()
+    const latitude = Number(locationForm.latitude)
+    const longitude = Number(locationForm.longitude)
+    if (!locationForm.location.trim()) {
+      setActionError('Location is required.')
+      return
+    }
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+      setActionError('Enter valid latitude and longitude values.')
+      return
+    }
+
+    setBusy(true)
+    setActionError('')
+    setNotice('')
+    try {
+      await shipmentService.updateLocation({
+        shipmentId: Number(id),
+        latitude,
+        longitude,
+        location: locationForm.location.trim(),
+        notes: locationForm.notes.trim(),
+      })
+      setLocationForm({ location: '', latitude: '', longitude: '', notes: '' })
+      setNotice('Location update recorded.')
+      await Promise.all([loadTracking(), shipmentService.getById(id).then(setShipment)])
+    } catch (err) {
+      setActionError(extractErrorMessage(err, 'Could not record the location update.'))
     } finally {
       setBusy(false)
     }
@@ -163,9 +323,8 @@ export default function ShipmentDetail() {
                   <label className="mb-1.5 block text-sm font-medium text-slate-700">Move status to</label>
                   <select
                     value={nextStatus}
-                    onChange={(e) => setNextStatus(e.target.value)}
-                    className="rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm outline-none
-                               focus:border-brand-500 focus:ring-2 focus:ring-brand-500/30"
+                    onChange={(event) => setNextStatus(event.target.value)}
+                    className="rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/30"
                   >
                     <option value="">Select…</option>
                     {transitionOptions.map((status) => (
@@ -188,10 +347,10 @@ export default function ShipmentDetail() {
                   />
                 </div>
                 <button
+                  type="button"
                   onClick={handleStatusChange}
                   disabled={busy || !nextStatus}
-                  className="rounded-lg bg-brand-600 px-4 py-2.5 text-sm font-medium text-white
-                             hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="rounded-lg bg-brand-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {busy ? 'Updating…' : 'Update status'}
                 </button>
@@ -200,6 +359,7 @@ export default function ShipmentDetail() {
 
             {canCancel && !showCancel && (
               <button
+                type="button"
                 onClick={() => setShowCancel(true)}
                 className="rounded-lg border border-red-300 px-4 py-2.5 text-sm font-medium text-red-700 hover:bg-red-50"
               >
@@ -213,13 +373,13 @@ export default function ShipmentDetail() {
               <label className="mb-1.5 block text-sm font-medium text-slate-700">Reason for cancelling</label>
               <input
                 value={cancelReason}
-                onChange={(e) => setCancelReason(e.target.value)}
+                onChange={(event) => setCancelReason(event.target.value)}
                 placeholder="Customer requested cancellation"
-                className="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm outline-none
-                           focus:border-red-500 focus:ring-2 focus:ring-red-500/20"
+                className="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm outline-none focus:border-red-500 focus:ring-2 focus:ring-red-500/20"
               />
               <div className="mt-3 flex gap-2">
                 <button
+                  type="button"
                   onClick={handleCancel}
                   disabled={busy}
                   className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-60"
@@ -227,6 +387,7 @@ export default function ShipmentDetail() {
                   {busy ? 'Cancelling…' : 'Confirm cancellation'}
                 </button>
                 <button
+                  type="button"
                   onClick={() => {
                     setShowCancel(false)
                     setCancelReason('')
@@ -238,12 +399,72 @@ export default function ShipmentDetail() {
               </div>
             </div>
           )}
+        </section>
+      )}
 
-          {!canChangeStatus && !transitionOptions.length && (
-            <p className="text-sm text-slate-500">
-              This shipment is in a terminal state — no further transitions are possible.
-            </p>
-          )}
+      {canManageOperations && (
+        <section className="mb-6 rounded-xl border border-slate-200 bg-white p-6">
+          <h2 className="mb-1 text-sm font-semibold uppercase tracking-wide text-slate-500">Operations</h2>
+          <p className="mb-4 text-sm text-slate-500">Assign an operator or record the latest location.</p>
+          <div className="grid gap-6 lg:grid-cols-2">
+            <form onSubmit={handleAssignOperator} className="space-y-3">
+              <label htmlFor="operatorId" className="block text-sm font-medium text-slate-700">
+                Assign operator
+              </label>
+              {user?.role === 'ADMINISTRATOR' && operators.length ? (
+                <select
+                  id="operatorId"
+                  value={operatorId}
+                  onChange={(event) => setOperatorId(event.target.value)}
+                  className="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/30"
+                >
+                  <option value="">Select an operator</option>
+                  {operators.map((operator) => (
+                    <option key={operator.id} value={operator.id}>
+                      {operator.fullName} (#{operator.id})
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  id="operatorId"
+                  value={operatorId}
+                  onChange={(event) => setOperatorId(event.target.value)}
+                  type="number"
+                  min="1"
+                  placeholder="Operator id"
+                  className="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/30"
+                />
+              )}
+              <button
+                type="submit"
+                disabled={busy}
+                className="rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {busy ? 'Saving…' : 'Assign operator'}
+              </button>
+            </form>
+
+            <form onSubmit={handleLocationSubmit} className="grid gap-3 sm:grid-cols-2">
+              <div className="sm:col-span-2">
+                <TextField id="location" label="Current location" value={locationForm.location} onChange={handleLocationChange} />
+              </div>
+              <TextField id="latitude" label="Latitude" type="number" value={locationForm.latitude} onChange={handleLocationChange} />
+              <TextField id="longitude" label="Longitude" type="number" value={locationForm.longitude} onChange={handleLocationChange} />
+              <div className="sm:col-span-2">
+                <TextField id="notes" label="Location note (optional)" value={locationForm.notes} onChange={handleLocationChange} />
+              </div>
+              <div className="sm:col-span-2">
+                <button
+                  type="submit"
+                  disabled={busy}
+                  className="rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {busy ? 'Saving…' : 'Save location update'}
+                </button>
+              </div>
+            </form>
+          </div>
         </section>
       )}
 
@@ -314,6 +535,58 @@ export default function ShipmentDetail() {
           </div>
         </section>
       </div>
+
+      {(route || canManageOperations) && (
+        <section className="mt-6 rounded-xl border border-slate-200 bg-white p-6">
+          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">Route</h2>
+          {route && (
+            <div className="mb-5 grid gap-3 text-sm sm:grid-cols-2">
+              <div>
+                <p className="text-slate-500">Origin</p>
+                <p className="mt-1 font-medium text-slate-900">{route.originAddress}</p>
+              </div>
+              <div>
+                <p className="text-slate-500">Destination</p>
+                <p className="mt-1 font-medium text-slate-900">{route.destinationAddress}</p>
+              </div>
+              <div>
+                <p className="text-slate-500">Waypoints</p>
+                <p className="mt-1 font-medium text-slate-900">{route.waypoints || '—'}</p>
+              </div>
+              <div>
+                <p className="text-slate-500">Distance and duration</p>
+                <p className="mt-1 font-medium text-slate-900">
+                  {route.distanceKm} km · {route.expectedDurationMinutes} minutes
+                </p>
+              </div>
+            </div>
+          )}
+
+          {canManageOperations && (
+            <form onSubmit={handleRouteSubmit} className="grid gap-4 border-t border-slate-100 pt-5 sm:grid-cols-2">
+              <TextField id="originAddress" label="Origin address" value={routeForm.originAddress} onChange={handleRouteChange} />
+              <TextField id="destinationAddress" label="Destination address" value={routeForm.destinationAddress} onChange={handleRouteChange} />
+              <TextField id="waypoints" label="Waypoints (optional)" value={routeForm.waypoints} onChange={handleRouteChange} placeholder="Kurnool;Vellore" />
+              <TextField id="distanceKm" label="Distance (km)" type="number" value={routeForm.distanceKm} onChange={handleRouteChange} />
+              <TextField id="expectedDurationMinutes" label="Expected duration (minutes)" type="number" value={routeForm.expectedDurationMinutes} onChange={handleRouteChange} />
+              <div className="flex items-end">
+                <button
+                  type="submit"
+                  disabled={busy}
+                  className="rounded-lg bg-brand-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {busy ? 'Saving…' : route ? 'Update route' : 'Create route'}
+                </button>
+              </div>
+            </form>
+          )}
+        </section>
+      )}
+
+      <section className="mt-6 rounded-xl border border-slate-200 bg-white p-6">
+        <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-slate-500">Tracking timeline</h2>
+        <TrackingTimeline events={events} />
+      </section>
     </AppLayout>
   )
 }

@@ -34,7 +34,7 @@ export const shipmentService = {
   getById: (id) => api.get(`/shipments/${id}`).then((res) => res.data),
 
   getByTracking: (trackingNumber) =>
-    api.get(`/shipments/tracking/${trackingNumber}`).then((res) => res.data),
+    api.get(`/tracking/${encodeURIComponent(trackingNumber)}`).then((res) => res.data),
 
   create: (payload) => api.post('/shipments', payload).then((res) => res.data),
 
@@ -42,6 +42,21 @@ export const shipmentService = {
 
   updateStatus: (id, status, note) =>
     api.patch(`/shipments/${id}/status`, { status, notes: note }).then((res) => res.data),
+
+  getTrackingEvents: (id) => api.get(`/shipments/${id}/tracking`).then((res) => res.data),
+
+  updateLocation: (payload) => api.post('/tracking/location', payload).then((res) => res.data),
+
+  getRoute: (id) => api.get(`/routes/${id}`).then((res) => res.data),
+
+  saveRoute: (payload) => api.post('/routes', payload).then((res) => res.data),
+
+  assignOperator: (id, operatorId) =>
+    api.patch(`/shipments/${id}/operator`, { operatorId }).then((res) => res.data),
+
+  getActiveMonitoring: () => api.get('/monitoring/active').then((res) => res.data),
+
+  getAdminUsers: () => api.get('/admin/users').then((res) => res.data),
 
   // DELETE with a body needs the `data` key in axios.
   cancel: (id, reason) =>

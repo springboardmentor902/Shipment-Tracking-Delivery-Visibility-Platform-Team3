@@ -127,6 +127,11 @@ export default function Login() {
               Track a shipment
             </Link>
           </p>
+          <p className="text-center text-sm text-slate-500">
+            <Link to="/forgot-password" className="font-medium text-brand-600 hover:text-brand-700">
+              Forgot password?
+            </Link>
+          </p>
         </form>
       </div>
     </div>

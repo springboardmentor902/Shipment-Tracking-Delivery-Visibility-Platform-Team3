@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { TOKEN_KEY, USER_KEY } from '../services/api'
 import { authService } from '../services/authService'
 
@@ -46,6 +46,11 @@ export function AuthProvider({ children }) {
     setUser(null)
   }
 
+  const updateCurrentUser = useCallback((nextUser) => {
+    localStorage.setItem(USER_KEY, JSON.stringify(nextUser))
+    setUser(nextUser)
+  }, [])
+
   const value = useMemo(
     () => ({
       user,
@@ -55,8 +60,9 @@ export function AuthProvider({ children }) {
       login,
       register,
       logout,
+      updateCurrentUser,
     }),
-    [user, token, initialising]
+    [user, token, initialising, updateCurrentUser]
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

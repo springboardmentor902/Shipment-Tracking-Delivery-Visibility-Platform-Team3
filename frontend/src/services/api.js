@@ -24,7 +24,7 @@ api.interceptors.response.use(
     const status = error.response?.status
     const isAuthCall = error.config?.url?.includes('/auth/')
 
-    const isPublicTrackingCall = error.config?.url?.includes('/shipments/tracking/')
+    const isPublicTrackingCall = error.config?.url?.includes('/tracking/')
 
     if (status === 401 && !isAuthCall && !isPublicTrackingCall) {
       localStorage.removeItem(TOKEN_KEY)
