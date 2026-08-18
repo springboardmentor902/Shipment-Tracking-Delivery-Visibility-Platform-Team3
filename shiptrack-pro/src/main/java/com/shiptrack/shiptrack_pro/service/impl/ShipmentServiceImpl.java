@@ -106,8 +106,13 @@ public class ShipmentServiceImpl implements ShipmentService {
                     ? shipmentRepository.findVisibleToOperator(actor, pageable)
                     : shipmentRepository.findVisibleToOperatorByStatus(actor, filter, pageable);
 
-            // Customers and business clients see only their own shipments.
-            case CUSTOMER, BUSINESS_CLIENT -> filter == null
+            // customer cannot create shipments, so show the ones sent to him
+            case CUSTOMER -> filter == null
+                    ? shipmentRepository.findByReceiverEmailIgnoreCase(actor.getEmail(), pageable)
+                    : shipmentRepository.findByReceiverEmailIgnoreCaseAndStatus(actor.getEmail(), filter, pageable);
+
+            // business client sees what he created
+            case BUSINESS_CLIENT -> filter == null
                     ? shipmentRepository.findByCreatedBy(actor, pageable)
                     : shipmentRepository.findByCreatedByAndStatus(actor, filter, pageable);
         };
@@ -286,13 +291,20 @@ public class ShipmentServiceImpl implements ShipmentService {
         return isCreator || isOperator;
     }
 
+    // customer is linked by email only
+    private boolean isReceiver(Shipment shipment, User user) {
+        return shipment.getReceiverEmail() != null
+                && shipment.getReceiverEmail().equalsIgnoreCase(user.getEmail());
+    }
+
     private void assertCanView(Shipment shipment) {
         User actor = currentUserService.getCurrentUser();
         Role actorRole = Role.valueOf(actor.getRole());
 
         boolean allowed = switch (actorRole) {
             case ADMINISTRATOR, SUPPORT_AGENT -> true;
-            case LOGISTICS_OPERATOR, CUSTOMER, BUSINESS_CLIENT -> isTiedTo(shipment, actor);
+            case LOGISTICS_OPERATOR, BUSINESS_CLIENT -> isTiedTo(shipment, actor);
+            case CUSTOMER -> isReceiver(shipment, actor) || isTiedTo(shipment, actor);
         };
 
         if (!allowed) {

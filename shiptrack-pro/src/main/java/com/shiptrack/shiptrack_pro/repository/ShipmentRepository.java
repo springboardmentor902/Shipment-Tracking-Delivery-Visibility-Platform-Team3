@@ -29,6 +29,13 @@ public interface ShipmentRepository extends JpaRepository<Shipment, Long> {
 
     Page<Shipment> findByStatus(ShipmentStatus status, Pageable pageable);
 
+    // customer is the receiver, not the creator, so match on email
+    Page<Shipment> findByReceiverEmailIgnoreCase(String receiverEmail, Pageable pageable);
+
+    Page<Shipment> findByReceiverEmailIgnoreCaseAndStatus(String receiverEmail,
+                                                          ShipmentStatus status,
+                                                          Pageable pageable);
+
     /** Operators see shipments assigned to them plus any they created themselves. */
     @Query("""
            SELECT s FROM Shipment s

@@ -17,14 +17,9 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
-/**
- * Seeds demo users (one per role) and a spread of sample shipments so the UI has
- * something to show on a fresh database.
- *
- * Idempotent: users are created only when the email is free, and shipments are
- * skipped entirely once the SHIPMENTS table is non-empty. Disable with
- * app.seed.demo-data=false in application.properties.
- */
+// puts some demo users and shipments in the db so the ui is not empty on a fresh setup.
+// runs only once - existing emails are skipped and shipments are added only if the table is empty.
+// set app.seed.demo-data=false in application.properties to turn it off.
 @Component
 @RequiredArgsConstructor
 public class DemoDataSeeder implements CommandLineRunner {
@@ -46,18 +41,18 @@ public class DemoDataSeeder implements CommandLineRunner {
                 "9810011111", "BUSINESS_CLIENT");
         User operator = upsertUser("Ops Rider One", "ops@shiptrack.com", "Ops@12345",
                 "9810022222", "LOGISTICS_OPERATOR");
-        User customer = upsertUser("Ravi Kumar", "ravi@gmail.com", "Ravi@12345",
+        upsertUser("Ravi Kumar", "ravi@gmail.com", "Ravi@12345",
                 "9810033333", "CUSTOMER");
         upsertUser("Priya Support", "support@shiptrack.com", "Support@123",
                 "9810044444", "SUPPORT_AGENT");
 
         if (shipmentRepository.count() > 0) {
-            return; // shipments already present, leave real data alone
+            return; // already has data, do not touch it
         }
 
         LocalDate today = LocalDate.now();
 
-        // 1 — freshly created, awaiting pickup
+        // waiting for pickup
         Shipment s1 = shipment("STPDEMO00001", business, null,
                 "Acme Traders Pvt Ltd", "9810011111", "Plot 21, Gachibowli, Hyderabad 500032",
                 "Ravi Kumar", "9810033333", "ravi@gmail.com", "12-4-9 Banjara Hills, Hyderabad 500034",
@@ -66,7 +61,7 @@ public class DemoDataSeeder implements CommandLineRunner {
         s1.addPackage(pkg(1, "Cotton kurta set - 3 pcs", "2.400", "40", "30", "12", 1, "3200.00", false));
         shipmentRepository.save(s1);
 
-        // 2 — picked up by the operator
+        // picked up
         Shipment s2 = shipment("STPDEMO00002", business, operator,
                 "Acme Traders Pvt Ltd", "9810011111", "Plot 21, Gachibowli, Hyderabad 500032",
                 "Sneha Iyer", "9820055555", "sneha.iyer@example.com", "7B Koregaon Park, Pune 411001",
@@ -75,7 +70,7 @@ public class DemoDataSeeder implements CommandLineRunner {
         s2.addPackage(pkg(1, "Bluetooth speaker", "1.100", "22", "18", "18", 2, "5400.00", true));
         shipmentRepository.save(s2);
 
-        // 3 — moving between hubs
+        // on the way, 2 packages
         Shipment s3 = shipment("STPDEMO00003", business, operator,
                 "Acme Traders Pvt Ltd", "9810011111", "Warehouse 4, Medchal, Hyderabad 501401",
                 "Arjun Menon", "9830066666", "arjun.menon@example.com", "45 Anna Nagar, Chennai 600040",
@@ -85,7 +80,7 @@ public class DemoDataSeeder implements CommandLineRunner {
         s3.addPackage(pkg(2, "Glass storage jars", "3.200", "35", "35", "30", 4, "1600.00", true));
         shipmentRepository.save(s3);
 
-        // 4 — with the rider today
+        // rider is out with it today
         Shipment s4 = shipment("STPDEMO00004", operator, operator,
                 "Acme Traders Pvt Ltd", "9810011111", "Hub 2, Kondapur, Hyderabad 500084",
                 "Meera Nair", "9840077777", "meera.nair@example.com", "9 MG Road, Bengaluru 560001",
@@ -94,7 +89,7 @@ public class DemoDataSeeder implements CommandLineRunner {
         s4.addPackage(pkg(1, "Laptop sleeve + charger", "1.600", "42", "30", "8", 1, "4200.00", false));
         shipmentRepository.save(s4);
 
-        // 5 — delivered on time
+        // delivered on time
         Shipment s5 = shipment("STPDEMO00005", business, operator,
                 "Acme Traders Pvt Ltd", "9810011111", "Plot 21, Gachibowli, Hyderabad 500032",
                 "Rohit Sharma", "9850088888", "rohit.sharma@example.com", "22 Sector 18, Noida 201301",
@@ -103,7 +98,7 @@ public class DemoDataSeeder implements CommandLineRunner {
         s5.addPackage(pkg(1, "Office stationery bundle", "4.500", "45", "35", "20", 3, "2750.00", false));
         shipmentRepository.save(s5);
 
-        // 6 — delivered a day early
+        // delivered 1 day early
         Shipment s6 = shipment("STPDEMO00006", business, operator,
                 "Acme Traders Pvt Ltd", "9810011111", "Warehouse 4, Medchal, Hyderabad 501401",
                 "Kavya Reddy", "9860099999", "kavya.reddy@example.com", "3 Jubilee Hills, Hyderabad 500033",
@@ -112,7 +107,7 @@ public class DemoDataSeeder implements CommandLineRunner {
         s6.addPackage(pkg(1, "Ceramic dinner plates", "5.900", "38", "38", "22", 6, "6100.00", true));
         shipmentRepository.save(s6);
 
-        // 7 — failed delivery attempt, waiting for a retry
+        // delivery attempt failed, needs retry
         Shipment s7 = shipment("STPDEMO00007", business, operator,
                 "Acme Traders Pvt Ltd", "9810011111", "Hub 2, Kondapur, Hyderabad 500084",
                 "Imran Qureshi", "9870011111", "imran.q@example.com", "14 Park Street, Kolkata 700016",
@@ -121,7 +116,7 @@ public class DemoDataSeeder implements CommandLineRunner {
         s7.addPackage(pkg(1, "Running shoes size 9", "1.300", "34", "24", "14", 1, "3600.00", false));
         shipmentRepository.save(s7);
 
-        // 8 — cancelled by the customer before pickup
+        // cancelled before pickup
         Shipment s8 = shipment("STPDEMO00008", business, null,
                 "Acme Traders Pvt Ltd", "9810011111", "Plot 21, Gachibowli, Hyderabad 500032",
                 "Ravi Kumar", "9810033333", "ravi@gmail.com", "12-4-9 Banjara Hills, Hyderabad 500034",
@@ -132,19 +127,19 @@ public class DemoDataSeeder implements CommandLineRunner {
         s8.addPackage(pkg(1, "Denim jacket", "1.800", "40", "32", "10", 1, "2900.00", false));
         shipmentRepository.save(s8);
 
-        // 9 — customer's own shipment, so a CUSTOMER login also sees data
+        // ravi is the receiver here so the customer login has an in-transit one
         Shipment s9 = shipment("STPDEMO00009", operator, operator,
-                "Ravi Kumar", "9810033333", "12-4-9 Banjara Hills, Hyderabad 500034",
-                "Anita Desai", "9880022222", "anita.desai@example.com", "5 Vastrapur, Ahmedabad 380015",
-                "12-4-9 Banjara Hills, Hyderabad 500034", "5 Vastrapur, Ahmedabad 380015",
+                "Anita Desai", "9880022222", "5 Vastrapur, Ahmedabad 380015",
+                "Ravi Kumar", "9810033333", "ravi@gmail.com", "12-4-9 Banjara Hills, Hyderabad 500034",
+                "5 Vastrapur, Ahmedabad 380015", "12-4-9 Banjara Hills, Hyderabad 500034",
                 ShipmentStatus.IN_TRANSIT, ShipmentPriority.EXPRESS, today.plusDays(1), null);
         s9.addPackage(pkg(1, "Books - 4 titles", "3.700", "30", "24", "20", 1, "1850.00", false));
         shipmentRepository.save(s9);
 
-        System.out.println("Seeded demo users and " + shipmentRepository.count() + " sample shipments");
+        System.out.println("Demo data added: " + shipmentRepository.count() + " shipments");
     }
 
-    /* ---------- helpers ---------- */
+    /* ---------- small helpers ---------- */
 
     private User upsertUser(String fullName, String email, String rawPassword, String phone, String role) {
         return userRepository.findByEmail(email).orElseGet(() -> userRepository.save(
