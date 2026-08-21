@@ -35,9 +35,23 @@ public class SecurityConfig {
                     session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
                     .requestMatchers("/api/auth/**").permitAll()
- 
+
+                    // WebSocket/SockJS handshake for live tracking must be reachable
+                    // without a Bearer token (SockJS issues plain GET/POST info + XHR
+                    // polling requests during the handshake).
+                    .requestMatchers("/api/ws/tracking/**").permitAll()
+
                     .requestMatchers(HttpMethod.POST, "/api/shipments")
                             .hasAnyRole("CUSTOMER", "BUSINESS_CLIENT")
+
+                    .requestMatchers(HttpMethod.POST, "/api/route/*/location")
+                            .hasAnyRole("LOGISTICS_OPERATOR", "ADMINISTRATOR")
+
+                    .requestMatchers(HttpMethod.PUT, "/api/route/*/destination")
+                            .hasAnyRole("LOGISTICS_OPERATOR", "ADMINISTRATOR")
+
+                    .requestMatchers(HttpMethod.GET, "/api/route/*/location")
+                            .authenticated()
  
                     .requestMatchers("/api/tracking/**", "/api/routes/**")
                             .hasAnyRole("LOGISTICS_OPERATOR", "ADMINISTRATOR")
