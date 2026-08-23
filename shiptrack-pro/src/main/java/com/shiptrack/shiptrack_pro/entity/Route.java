@@ -36,7 +36,11 @@ public class Route {
     private Integer actualTimeMinutes;
 
     private String trafficCondition;
+    
+ // Driver's last known location
+    private Double lastKnownLatitude;
 
+    private Double lastKnownLongitude;
     // Driver assigned by Operator/Admin
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "driver_id")
