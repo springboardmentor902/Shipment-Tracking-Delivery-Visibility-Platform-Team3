@@ -26,36 +26,55 @@ public class SecurityConfig {
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
- 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+
         http
             .csrf(csrf -> csrf.disable())
+
             .sessionManagement(session ->
                     session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+
             .authorizeHttpRequests(auth -> auth
+
+                    // Public authentication endpoints
                     .requestMatchers("/api/auth/**").permitAll()
- 
+
+                    // Public WebSocket handshake
+                    .requestMatchers("/api/ws/tracking/**").permitAll()
+
+                    // Shipment creation
                     .requestMatchers(HttpMethod.POST, "/api/shipments")
                             .hasAnyRole("CUSTOMER", "BUSINESS_CLIENT")
- 
+
+                    // Tracking and routes
                     .requestMatchers("/api/tracking/**", "/api/routes/**")
                             .hasAnyRole("LOGISTICS_OPERATOR", "ADMINISTRATOR")
- 
+
+                    // Proof of delivery
                     .requestMatchers(HttpMethod.POST, "/api/pod/**")
                             .hasRole("LOGISTICS_OPERATOR")
- 
+
+                    // Analytics and reports
                     .requestMatchers("/api/analytics/**", "/api/reports/**")
                             .hasAnyRole("BUSINESS_CLIENT", "ADMINISTRATOR")
- 
-                    .requestMatchers("/api/admin/**").hasRole("ADMINISTRATOR")
- 
+
+                    // Admin
+                    .requestMatchers("/api/admin/**")
+                            .hasRole("ADMINISTRATOR")
+
+                    // Everything else requires authentication
                     .anyRequest().authenticated()
             )
+
             .httpBasic(basic -> basic.disable())
             .formLogin(form -> form.disable())
-            .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
- 
+
+            .addFilterBefore(
+                    jwtAuthFilter,
+                    UsernamePasswordAuthenticationFilter.class
+            );
+
         return http.build();
     }
 }

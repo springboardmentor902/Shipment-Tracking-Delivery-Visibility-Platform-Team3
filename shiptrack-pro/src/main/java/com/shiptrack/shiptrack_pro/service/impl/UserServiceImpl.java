@@ -120,7 +120,19 @@ public class UserServiceImpl implements UserService {
         User updatedUser = userRepository.save(user);
         return mapToResponse(updatedUser);
     }
- 
+    @Override
+    public UserResponse updateUserStatus(Long userId, String status) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "User not found with id: " + userId));
+
+        user.setStatus(status);
+
+        User updatedUser = userRepository.save(user);
+
+        return mapToResponse(updatedUser);
+    }
     private UserResponse mapToResponse(User user) {
         return UserResponse.builder()
                 .id(user.getId())
@@ -132,5 +144,10 @@ public class UserServiceImpl implements UserService {
                 .createdAt(user.getCreatedAt())
                 .build();
     }
-}
+
+	@Override
+	public UserResponse getUserProfile(Long userId) {
+		// TODO Auto-generated method stub
+		return null;
+	}
 }
