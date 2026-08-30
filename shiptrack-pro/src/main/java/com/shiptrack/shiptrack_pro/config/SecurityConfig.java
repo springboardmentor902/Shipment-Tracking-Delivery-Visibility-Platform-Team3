@@ -1,73 +1,129 @@
 package com.shiptrack.shiptrack_pro.config;
- 
+
 import com.shiptrack.shiptrack_pro.security.JwtAuthFilter;
 import lombok.RequiredArgsConstructor;
+
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
+
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
- 
+
 @Configuration
 @EnableWebSecurity
-@EnableMethodSecurity   // activates @PreAuthorize on controller methods
+@EnableMethodSecurity
 @RequiredArgsConstructor
 public class SecurityConfig {
- 
+
     private final JwtAuthFilter jwtAuthFilter;
- 
+
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
+
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain securityFilterChain(HttpSecurity http)
+            throws Exception {
 
         http
             .csrf(csrf -> csrf.disable())
 
             .sessionManagement(session ->
-                    session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                    session.sessionCreationPolicy(
+                            SessionCreationPolicy.STATELESS))
 
             .authorizeHttpRequests(auth -> auth
 
-                    // Public authentication endpoints
-                    .requestMatchers("/api/auth/**").permitAll()
+                    // =========================
+                    // Authentication
+                    // =========================
+                    .requestMatchers("/api/auth/**")
+                    .permitAll()
 
-                    // Public WebSocket handshake
-                    .requestMatchers("/api/ws/tracking/**").permitAll()
+                    // =========================
+                    // WebSocket
+                    // =========================
+                    .requestMatchers("/api/ws/tracking/**")
+                    .permitAll()
 
-                    // Shipment creation
+                    // =========================
+                    // Shipments
+                    // =========================
                     .requestMatchers(HttpMethod.POST, "/api/shipments")
-                            .hasAnyRole("CUSTOMER", "BUSINESS_CLIENT")
+                    .hasAnyRole(
+                            "CUSTOMER",
+                            "BUSINESS_CLIENT"
+                    )
 
-                    // Tracking and routes
-                    .requestMatchers("/api/tracking/**", "/api/routes/**")
-                            .hasAnyRole("LOGISTICS_OPERATOR", "ADMINISTRATOR")
+                    // =========================
+                    // Routes & Tracking
+                    // =========================
+                    .requestMatchers(
+                            "/api/tracking/**",
+                            "/api/routes/**"
+                    )
+                    .hasAnyRole(
+                            "LOGISTICS_OPERATOR",
+                            "ADMINISTRATOR"
+                    )
 
-                    // Proof of delivery
+                    // =========================
+                    // Driver Location
+                    // =========================
+                    .requestMatchers("/api/route/**")
+                    .hasAnyRole(
+                            "LOGISTICS_OPERATOR",
+                            "ADMINISTRATOR"
+                    )
+
+                    // =========================
+                    // ETA Prediction
+                    // =========================
+                    .requestMatchers("/api/eta/**")
+                    .authenticated()
+
+                    // =========================
+                    // Proof of Delivery
+                    // =========================
                     .requestMatchers(HttpMethod.POST, "/api/pod/**")
-                            .hasRole("LOGISTICS_OPERATOR")
+                    .hasRole("LOGISTICS_OPERATOR")
 
-                    // Analytics and reports
-                    .requestMatchers("/api/analytics/**", "/api/reports/**")
-                            .hasAnyRole("BUSINESS_CLIENT", "ADMINISTRATOR")
+                    // =========================
+                    // Analytics & Reports
+                    // =========================
+                    .requestMatchers(
+                            "/api/analytics/**",
+                            "/api/reports/**"
+                    )
+                    .hasAnyRole(
+                            "BUSINESS_CLIENT",
+                            "ADMINISTRATOR"
+                    )
 
+                    // =========================
                     // Admin
+                    // =========================
                     .requestMatchers("/api/admin/**")
-                            .hasRole("ADMINISTRATOR")
+                    .hasRole("ADMINISTRATOR")
 
-                    // Everything else requires authentication
-                    .anyRequest().authenticated()
+                    // =========================
+                    // Everything else
+                    // =========================
+                    .anyRequest()
+                    .authenticated()
             )
 
             .httpBasic(basic -> basic.disable())
+
             .formLogin(form -> form.disable())
 
             .addFilterBefore(
