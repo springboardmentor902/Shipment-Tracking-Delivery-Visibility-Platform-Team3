@@ -105,6 +105,9 @@ public class SecurityConfig {
                         // are allowed to see; the service layer enforces that access.
                         .requestMatchers(HttpMethod.GET, "/api/routes/**").authenticated()
 
+                        // ---- Notifications: always the caller's own inbox ----
+                        .requestMatchers("/api/notifications/**").authenticated()
+
                         // ---- Live delivery monitoring ----
                         // ETA reads are authorized per shipment inside EtaService
                         .requestMatchers(HttpMethod.GET, "/api/eta/**").authenticated()

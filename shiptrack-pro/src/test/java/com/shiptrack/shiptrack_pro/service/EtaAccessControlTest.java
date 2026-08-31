@@ -11,6 +11,7 @@ import com.shiptrack.shiptrack_pro.repository.EtaPredictionRepository;
 import com.shiptrack.shiptrack_pro.repository.ShipmentRepository;
 import com.shiptrack.shiptrack_pro.repository.TrackingEventRepository;
 import com.shiptrack.shiptrack_pro.security.CurrentUserService;
+import com.shiptrack.shiptrack_pro.service.NotificationService;
 import com.shiptrack.shiptrack_pro.security.Role;
 import com.shiptrack.shiptrack_pro.security.ShipmentAccessPolicy;
 import com.shiptrack.shiptrack_pro.service.impl.EtaServiceImpl;
@@ -50,6 +51,7 @@ class EtaAccessControlTest {
     @Mock private TrackingEventRepository trackingEventRepository;
     @Mock private EtaPredictionRepository etaPredictionRepository;
     @Mock private CurrentUserService currentUserService;
+    @Mock private NotificationService notificationService;
 
     private EtaServiceImpl etaService;
 
@@ -62,7 +64,7 @@ class EtaAccessControlTest {
         // the real policy, so these tests exercise the actual rules
         ShipmentAccessPolicy accessPolicy = new ShipmentAccessPolicy();
         etaService = new EtaServiceImpl(shipmentRepository, routeRepository, trackingEventRepository,
-                etaPredictionRepository, currentUserService, accessPolicy);
+                etaPredictionRepository, currentUserService, accessPolicy, notificationService);
 
         owner = user(1L, Role.BUSINESS_CLIENT, "Anita Business");
         assignedOperator = user(2L, Role.LOGISTICS_OPERATOR, "Ravi Operator");

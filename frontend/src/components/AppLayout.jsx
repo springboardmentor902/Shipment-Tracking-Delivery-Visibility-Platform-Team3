@@ -1,6 +1,7 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import EnableAlertsButton from './EnableAlertsButton'
+import NotificationBell from './NotificationBell'
 
 export default function AppLayout({ children }) {
   const { user, logout } = useAuth()
@@ -67,6 +68,8 @@ export default function AppLayout({ children }) {
             <span className="hidden text-sm text-slate-500 xl:inline">
               {user?.fullName} · {user?.role?.replaceAll('_', ' ')}
             </span>
+
+            <NotificationBell />
 
             <EnableAlertsButton />
 

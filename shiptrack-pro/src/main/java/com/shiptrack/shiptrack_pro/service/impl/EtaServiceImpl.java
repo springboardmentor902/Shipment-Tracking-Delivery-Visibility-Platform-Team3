@@ -1,6 +1,7 @@
 package com.shiptrack.shiptrack_pro.service.impl;
 
 import com.shiptrack.shiptrack_pro.dto.EtaResponse;
+import com.shiptrack.shiptrack_pro.entity.DelayRiskLevel;
 import com.shiptrack.shiptrack_pro.entity.DeliveryRoute;
 import com.shiptrack.shiptrack_pro.entity.EtaPrediction;
 import com.shiptrack.shiptrack_pro.entity.Shipment;
@@ -15,6 +16,7 @@ import com.shiptrack.shiptrack_pro.security.CurrentUserService;
 import com.shiptrack.shiptrack_pro.security.ShipmentAccessPolicy;
 import com.shiptrack.shiptrack_pro.service.EtaCalculator;
 import com.shiptrack.shiptrack_pro.service.EtaService;
+import com.shiptrack.shiptrack_pro.service.NotificationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -51,6 +53,7 @@ public class EtaServiceImpl implements EtaService {
     private final EtaPredictionRepository etaPredictionRepository;
     private final CurrentUserService currentUserService;
     private final ShipmentAccessPolicy accessPolicy;
+    private final NotificationService notificationService;
 
     @Override
     @Transactional
@@ -73,6 +76,9 @@ public class EtaServiceImpl implements EtaService {
         EtaPrediction prediction = etaPredictionRepository.findByShipmentId(shipment.getId())
                 .orElseGet(() -> EtaPrediction.builder().shipment(shipment).build());
 
+        // remembered before the overwrite, so an alert only fires when risk worsens
+        DelayRiskLevel previousLevel = prediction.getRiskLevel();
+
         prediction.setPredictedDeliveryAt(result.predictedDeliveryAt());
         prediction.setPromisedDeliveryDate(result.promisedDeliveryDate());
         prediction.setExpectedDelayMinutes(result.expectedDelayMinutes());
@@ -83,7 +89,35 @@ public class EtaServiceImpl implements EtaService {
         prediction.setSource(result.source());
         prediction.setCalculatedAt(LocalDateTime.now());
 
-        return toResponse(shipment, etaPredictionRepository.save(prediction));
+        EtaPrediction saved = etaPredictionRepository.save(prediction);
+        alertIfRiskWorsened(shipment, previousLevel, saved);
+        return toResponse(shipment, saved);
+    }
+
+    /**
+     * Delay alerts fire on escalation only.
+     *
+     * The forecast is recalculated on every location ping, so alerting on the
+     * current level alone would send the same warning dozens of times. A repeat at
+     * the same level is left to the notification cooldown; a drop in risk is not
+     * news at all.
+     */
+    private void alertIfRiskWorsened(Shipment shipment, DelayRiskLevel previousLevel,
+                                     EtaPrediction prediction) {
+        DelayRiskLevel level = prediction.getRiskLevel();
+        if (level == null || !ACTIVE_STATUSES.contains(shipment.getStatus())) {
+            return;
+        }
+        // below HIGH is worth showing on the dashboard but not worth an alert
+        if (level.ordinal() < DelayRiskLevel.HIGH.ordinal()) {
+            return;
+        }
+        if (previousLevel != null && level.ordinal() <= previousLevel.ordinal()) {
+            return;
+        }
+        notificationService.notifyDelayRisk(shipment, level,
+                prediction.getDelayRiskScore() == null ? 0 : prediction.getDelayRiskScore(),
+                prediction.getPredictedDeliveryAt(), prediction.getExpectedDelayMinutes());
     }
 
     /**

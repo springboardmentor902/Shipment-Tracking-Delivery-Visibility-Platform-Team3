@@ -35,8 +35,8 @@ twilio.from-number=${TWILIO_FROM_NUMBER:}
 # Gmail SMTP
 spring.mail.host=smtp.gmail.com
 spring.mail.port=587
-spring.mail.username=${MAIL_USERNAME}
-spring.mail.password=${MAIL_APP_PASSWORD}
+spring.mail.username=${MAIL_USERNAME:}
+spring.mail.password=${MAIL_APP_PASSWORD:}
 spring.mail.properties.mail.smtp.auth=true
 spring.mail.properties.mail.smtp.starttls.enable=true
 
@@ -65,3 +65,13 @@ google.maps.timeout-ms=5000
 eta.refresh.enabled=true
 eta.refresh.interval-ms=900000
 eta.refresh.initial-delay-ms=60000
+
+# ---- Milestone 5: alert delivery ----
+# Everything below is optional. With the mail and Twilio values blank the app
+# still runs and records in-app notifications; only email and SMS are skipped.
+notifications.email.enabled=true
+notifications.email.from=${MAIL_USERNAME:}
+notifications.sms.enabled=true
+notifications.sms.timeout-ms=5000
+# how long the same alert for the same shipment is suppressed for one recipient
+notifications.cooldown-minutes=30
