@@ -36,3 +36,7 @@ build/
 src/main/resources/application.properties
 secrets/
 .env
+.env
+**/.env
+.env
+**/.env
