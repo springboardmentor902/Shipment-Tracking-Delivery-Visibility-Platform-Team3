@@ -84,13 +84,15 @@ public class SecurityConfig {
                         // anyone can see the timeline with just a tracking number
                         .requestMatchers(HttpMethod.GET, "/api/tracking/*").permitAll()
 
-                        // only the rider or admin can push a location
+                        // only the rider or admin can push a location or a checkpoint
                         .requestMatchers(HttpMethod.POST, "/api/tracking/location")
+                        .hasAnyRole("LOGISTICS_OPERATOR", "ADMINISTRATOR")
+                        .requestMatchers(HttpMethod.POST, "/api/tracking/events")
                         .hasAnyRole("LOGISTICS_OPERATOR", "ADMINISTRATOR")
 
                         // ---- Routes (multi-leg) ----
                         // Only operators and admins plan, edit or reassign route legs.
-                        .requestMatchers(HttpMethod.POST, "/api/routes")
+                        .requestMatchers(HttpMethod.POST, "/api/routes", "/api/routes/*/refresh")
                         .hasAnyRole("LOGISTICS_OPERATOR", "ADMINISTRATOR")
                         .requestMatchers(HttpMethod.PUT, "/api/routes/**")
                         .hasAnyRole("LOGISTICS_OPERATOR", "ADMINISTRATOR")

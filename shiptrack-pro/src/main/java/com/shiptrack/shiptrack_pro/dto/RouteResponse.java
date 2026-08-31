@@ -33,6 +33,9 @@ public class RouteResponse {
     private Integer durationInTrafficMinutes;
     private String trafficCondition;
 
+    /** LIVE_MAPS, STRAIGHT_LINE or MANUAL — lets the UI label estimated values. */
+    private String metricsSource;
+
     private BigDecimal lastKnownLatitude;
     private BigDecimal lastKnownLongitude;
     private LocalDateTime lastLocationAt;

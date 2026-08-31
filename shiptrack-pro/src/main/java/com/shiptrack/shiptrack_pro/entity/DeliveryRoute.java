@@ -97,6 +97,13 @@ public class DeliveryRoute {
     @Column(name = "traffic_condition", length = 64)
     private String trafficCondition;
 
+    /**
+     * Where distance and duration came from: LIVE_MAPS (Google Directions),
+     * STRAIGHT_LINE (Haversine estimate) or MANUAL (typed by an operator).
+     */
+    @Column(name = "metrics_source", length = 20)
+    private String metricsSource;
+
     /* ---------- live position of the driver on this leg ---------- */
 
     @Column(name = "last_known_latitude", precision = 9, scale = 6)

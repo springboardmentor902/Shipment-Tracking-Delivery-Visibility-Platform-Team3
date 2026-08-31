@@ -1,5 +1,7 @@
 package com.shiptrack.shiptrack_pro.service.impl;
 
+import com.shiptrack.shiptrack_pro.dto.GeoPoint;
+import com.shiptrack.shiptrack_pro.dto.RouteMetrics;
 import com.shiptrack.shiptrack_pro.dto.RouteRequest;
 import com.shiptrack.shiptrack_pro.dto.RouteResponse;
 import com.shiptrack.shiptrack_pro.dto.RouteUpdateRequest;
@@ -12,17 +14,21 @@ import com.shiptrack.shiptrack_pro.repository.ShipmentRepository;
 import com.shiptrack.shiptrack_pro.repository.UserRepository;
 import com.shiptrack.shiptrack_pro.security.CurrentUserService;
 import com.shiptrack.shiptrack_pro.security.Role;
+import com.shiptrack.shiptrack_pro.service.MapsService;
 import com.shiptrack.shiptrack_pro.service.RouteService;
 import com.shiptrack.shiptrack_pro.service.ShipmentService;
+import com.shiptrack.shiptrack_pro.util.GeoUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -33,6 +39,7 @@ public class RouteServiceImpl implements RouteService {
     private final UserRepository userRepository;
     private final ShipmentService shipmentService;
     private final CurrentUserService currentUserService;
+    private final MapsService mapsService;
 
     /* ===================== CREATE ===================== */
 
@@ -77,6 +84,13 @@ public class RouteServiceImpl implements RouteService {
                 .notes(request.getNotes())
                 .status(RouteLegStatus.PLANNED)
                 .build();
+
+        if (route.getDistanceKm() != null || route.getExpectedDurationMinutes() != null) {
+            route.setMetricsSource("MANUAL");
+        }
+
+        // fill in coordinates, distance, duration and traffic from Google Maps
+        enrich(route, false);
 
         return toResponse(deliveryRouteRepository.save(route));
     }
@@ -138,7 +152,110 @@ public class RouteServiceImpl implements RouteService {
         if (request.getNotes() != null)                  route.setNotes(request.getNotes());
         if (request.getStatus() != null)                 route.setStatus(parseStatus(request.getStatus()));
 
+        if (request.getDistanceKm() != null || request.getExpectedDurationMinutes() != null) {
+            route.setMetricsSource("MANUAL");
+        }
+
+        // Re-geocode changed addresses and recompute metrics we do not have.
+        enrich(route, Boolean.TRUE.equals(request.getRefreshFromMaps()));
+
         return toResponse(deliveryRouteRepository.save(route));
+    }
+
+    /* ===================== REFRESH FROM MAPS ===================== */
+
+    @Override
+    @Transactional
+    public RouteResponse refreshRouteFromMaps(Long routeId) {
+        User actor = currentUserService.getCurrentUser();
+        Role role = Role.valueOf(actor.getRole());
+        assertCanManage(role);
+
+        DeliveryRoute route = findRoute(routeId);
+        if (role == Role.LOGISTICS_OPERATOR
+                && !isOperatorOfShipment(route.getShipment(), actor)
+                && !isDriverOfLeg(route, actor)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "You can only manage route legs of shipments assigned to you");
+        }
+
+        enrich(route, true);
+        return toResponse(deliveryRouteRepository.save(route));
+    }
+
+    /* ===================== MAPS ENRICHMENT ===================== */
+
+    /**
+     * Fills coordinates from the addresses and distance/duration/traffic from the
+     * Maps provider. Never throws: if Maps is unavailable (no API key, network
+     * error, quota) the leg is saved with whatever the operator supplied, and a
+     * straight-line estimate is used for distance when coordinates are known.
+     *
+     * @param force when true, existing Maps-derived metrics are recalculated
+     */
+    private void enrich(DeliveryRoute route, boolean force) {
+        // 1. addresses -> coordinates
+        if (route.getOriginLatitude() == null || route.getOriginLongitude() == null) {
+            mapsService.geocode(route.getOriginAddress()).ifPresent(point -> {
+                route.setOriginLatitude(point.latitude());
+                route.setOriginLongitude(point.longitude());
+            });
+        }
+        if (route.getDestinationLatitude() == null || route.getDestinationLongitude() == null) {
+            mapsService.geocode(route.getDestinationAddress()).ifPresent(point -> {
+                route.setDestinationLatitude(point.latitude());
+                route.setDestinationLongitude(point.longitude());
+            });
+        }
+
+        boolean hasCoordinates = route.getOriginLatitude() != null && route.getOriginLongitude() != null
+                && route.getDestinationLatitude() != null && route.getDestinationLongitude() != null;
+        if (!hasCoordinates) {
+            return;
+        }
+
+        boolean manual = "MANUAL".equals(route.getMetricsSource());
+        boolean needsMetrics = route.getDistanceKm() == null
+                || route.getExpectedDurationMinutes() == null
+                || (force && !manual)
+                || (force && manual && route.getDurationInTrafficMinutes() == null);
+
+        // traffic data goes stale quickly, so refresh it whenever we are asked to
+        if (!needsMetrics && !force) {
+            return;
+        }
+
+        GeoPoint origin = new GeoPoint(route.getOriginLatitude(), route.getOriginLongitude(), null);
+        GeoPoint destination = new GeoPoint(route.getDestinationLatitude(), route.getDestinationLongitude(), null);
+
+        Optional<RouteMetrics> metrics = mapsService.routeMetrics(origin, destination, route.getWaypoints());
+
+        if (metrics.isPresent()) {
+            RouteMetrics live = metrics.get();
+            // Never silently overwrite numbers an operator typed unless asked to.
+            if (!manual || force) {
+                route.setDistanceKm(live.distanceKm());
+                route.setExpectedDurationMinutes(live.durationMinutes());
+                route.setMetricsSource(live.source());
+            }
+            route.setDurationInTrafficMinutes(live.durationInTrafficMinutes());
+            if (live.trafficCondition() != null) {
+                route.setTrafficCondition(live.trafficCondition());
+            }
+            return;
+        }
+
+        // Maps unavailable: at least give the UI a usable straight-line estimate.
+        if (route.getDistanceKm() == null) {
+            BigDecimal estimate = GeoUtils.estimatedRoadDistanceKm(
+                    route.getOriginLatitude(), route.getOriginLongitude(),
+                    route.getDestinationLatitude(), route.getDestinationLongitude());
+            route.setDistanceKm(estimate);
+            if (route.getExpectedDurationMinutes() == null) {
+                route.setExpectedDurationMinutes(GeoUtils.estimatedDurationMinutes(estimate));
+            }
+            route.setMetricsSource(RouteMetrics.SOURCE_STRAIGHT_LINE);
+        }
     }
 
     /* ===================== READ ===================== */
@@ -242,6 +359,7 @@ public class RouteServiceImpl implements RouteService {
                 .expectedDurationMinutes(route.getExpectedDurationMinutes())
                 .durationInTrafficMinutes(route.getDurationInTrafficMinutes())
                 .trafficCondition(route.getTrafficCondition())
+                .metricsSource(route.getMetricsSource())
                 .lastKnownLatitude(route.getLastKnownLatitude())
                 .lastKnownLongitude(route.getLastKnownLongitude())
                 .lastLocationAt(route.getLastLocationAt())

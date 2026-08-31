@@ -36,6 +36,16 @@ public class RouteController {
     }
 
     /**
+     * Recalculate a leg's coordinates, distance, duration and live traffic from
+     * Google Maps. Safe to call without a Maps key: the leg is returned unchanged.
+     */
+    @PostMapping("/{id}/refresh")
+    @PreAuthorize("hasAnyRole('LOGISTICS_OPERATOR', 'ADMINISTRATOR')")
+    public ResponseEntity<RouteResponse> refreshRoute(@PathVariable Long id) {
+        return ResponseEntity.ok(routeService.refreshRouteFromMaps(id));
+    }
+
+    /**
      * All legs of a shipment, in travel order.
      * Any authenticated user who is allowed to see the shipment can read them,
      * but only operators/admins can change them.

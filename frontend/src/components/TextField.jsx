@@ -1,5 +1,7 @@
 export default function TextField({
   id,
+  // defaults to id; pass it when the form state key differs from the DOM id
+  name,
   label,
   type = 'text',
   value,
@@ -17,7 +19,7 @@ export default function TextField({
       <div className="relative">
         <input
           id={id}
-          name={id}
+          name={name || id}
           type={type}
           value={value}
           onChange={onChange}

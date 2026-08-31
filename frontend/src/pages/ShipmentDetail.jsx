@@ -1,20 +1,13 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import AppLayout from '../components/AppLayout'
+import RouteLegsPanel from '../components/RouteLegsPanel'
 import StatusBadge from '../components/StatusBadge'
 import TextField from '../components/TextField'
 import TrackingTimeline from '../components/TrackingTimeline'
 import { useAuth } from '../context/AuthContext'
 import { extractErrorMessage } from '../services/api'
 import { ALLOWED_STATUS_TRANSITIONS, CAN_CHANGE_STATUS_ROLES, shipmentService } from '../services/shipmentService'
-
-const EMPTY_ROUTE = {
-  originAddress: '',
-  destinationAddress: '',
-  waypoints: '',
-  distanceKm: '',
-  expectedDurationMinutes: '',
-}
 
 function Row({ label, value }) {
   return (
@@ -32,7 +25,6 @@ export default function ShipmentDetail() {
 
   const [shipment, setShipment] = useState(null)
   const [events, setEvents] = useState([])
-  const [route, setRoute] = useState(null)
   const [operators, setOperators] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -43,9 +35,9 @@ export default function ShipmentDetail() {
   const [busy, setBusy] = useState(false)
   const [showCancel, setShowCancel] = useState(false)
   const [cancelReason, setCancelReason] = useState('')
-  const [routeForm, setRouteForm] = useState(EMPTY_ROUTE)
   const [operatorId, setOperatorId] = useState('')
   const [locationForm, setLocationForm] = useState({ location: '', latitude: '', longitude: '', notes: '' })
+  const [checkpointForm, setCheckpointForm] = useState({ location: '', notes: '' })
 
   const loadTracking = useCallback(async () => {
     try {
@@ -53,26 +45,6 @@ export default function ShipmentDetail() {
     } catch (err) {
       if (err.response?.status !== 404) {
         setActionError(extractErrorMessage(err, 'Could not load tracking history.'))
-      }
-    }
-  }, [id])
-
-  const loadRoute = useCallback(async () => {
-    try {
-      const savedRoute = await shipmentService.getRoute(id)
-      setRoute(savedRoute)
-      setRouteForm({
-        originAddress: savedRoute.originAddress || '',
-        destinationAddress: savedRoute.destinationAddress || '',
-        waypoints: savedRoute.waypoints || '',
-        distanceKm: savedRoute.distanceKm ?? '',
-        expectedDurationMinutes: savedRoute.expectedDurationMinutes ?? '',
-      })
-    } catch (err) {
-      if (err.response?.status === 404) {
-        setRoute(null)
-      } else {
-        setActionError(extractErrorMessage(err, 'Could not load route details.'))
       }
     }
   }, [id])
@@ -92,7 +64,7 @@ export default function ShipmentDetail() {
     setError('')
     try {
       setShipment(await shipmentService.getById(id))
-      await Promise.all([loadTracking(), loadRoute(), loadOperators()])
+      await Promise.all([loadTracking(), loadOperators()])
     } catch (err) {
       const status = err.response?.status
       if (status === 403) setError('You do not have access to this shipment.')
@@ -101,7 +73,7 @@ export default function ShipmentDetail() {
     } finally {
       setLoading(false)
     }
-  }, [id, loadOperators, loadRoute, loadTracking])
+  }, [id, loadOperators, loadTracking])
 
   useEffect(() => {
     load()
@@ -184,21 +156,18 @@ export default function ShipmentDetail() {
     }
   }
 
-  function handleRouteChange(event) {
+  function handleCheckpointChange(event) {
     const { name, value } = event.target
-    setRouteForm((previous) => ({ ...previous, [name]: value }))
+    setCheckpointForm((previous) => ({ ...previous, [name]: value }))
     setActionError('')
     setNotice('')
   }
 
-  async function handleRouteSubmit(event) {
+  /** Adds a timeline checkpoint; the server geocodes the place name if it can. */
+  async function handleCheckpointSubmit(event) {
     event.preventDefault()
-    if (!routeForm.originAddress.trim() || !routeForm.destinationAddress.trim()) {
-      setActionError('Origin and destination are required.')
-      return
-    }
-    if (!routeForm.distanceKm || !routeForm.expectedDurationMinutes) {
-      setActionError('Distance and expected duration are required.')
+    if (!checkpointForm.location.trim()) {
+      setActionError('A checkpoint location is required.')
       return
     }
 
@@ -206,18 +175,16 @@ export default function ShipmentDetail() {
     setActionError('')
     setNotice('')
     try {
-      const savedRoute = await shipmentService.saveRoute({
+      await shipmentService.addTrackingEvent({
         shipmentId: Number(id),
-        originAddress: routeForm.originAddress.trim(),
-        destinationAddress: routeForm.destinationAddress.trim(),
-        waypoints: routeForm.waypoints.trim(),
-        distanceKm: Number(routeForm.distanceKm),
-        expectedDurationMinutes: Number(routeForm.expectedDurationMinutes),
+        location: checkpointForm.location.trim(),
+        notes: checkpointForm.notes.trim() || undefined,
       })
-      setRoute(savedRoute)
-      setNotice(route ? 'Route updated.' : 'Route created.')
+      setCheckpointForm({ location: '', notes: '' })
+      setNotice('Checkpoint added to the timeline.')
+      await loadTracking()
     } catch (err) {
-      setActionError(extractErrorMessage(err, 'Could not save the route.'))
+      setActionError(extractErrorMessage(err, 'Could not add the checkpoint.'))
     } finally {
       setBusy(false)
     }
@@ -536,56 +503,40 @@ export default function ShipmentDetail() {
         </section>
       </div>
 
-      {(route || canManageOperations) && (
-        <section className="mt-6 rounded-xl border border-slate-200 bg-white p-6">
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">Route</h2>
-          {route && (
-            <div className="mb-5 grid gap-3 text-sm sm:grid-cols-2">
-              <div>
-                <p className="text-slate-500">Origin</p>
-                <p className="mt-1 font-medium text-slate-900">{route.originAddress}</p>
-              </div>
-              <div>
-                <p className="text-slate-500">Destination</p>
-                <p className="mt-1 font-medium text-slate-900">{route.destinationAddress}</p>
-              </div>
-              <div>
-                <p className="text-slate-500">Waypoints</p>
-                <p className="mt-1 font-medium text-slate-900">{route.waypoints || '—'}</p>
-              </div>
-              <div>
-                <p className="text-slate-500">Distance and duration</p>
-                <p className="mt-1 font-medium text-slate-900">
-                  {route.distanceKm} km · {route.expectedDurationMinutes} minutes
-                </p>
-              </div>
-            </div>
-          )}
-
-          {canManageOperations && (
-            <form onSubmit={handleRouteSubmit} className="grid gap-4 border-t border-slate-100 pt-5 sm:grid-cols-2">
-              <TextField id="originAddress" label="Origin address" value={routeForm.originAddress} onChange={handleRouteChange} />
-              <TextField id="destinationAddress" label="Destination address" value={routeForm.destinationAddress} onChange={handleRouteChange} />
-              <TextField id="waypoints" label="Waypoints (optional)" value={routeForm.waypoints} onChange={handleRouteChange} placeholder="Kurnool;Vellore" />
-              <TextField id="distanceKm" label="Distance (km)" type="number" value={routeForm.distanceKm} onChange={handleRouteChange} />
-              <TextField id="expectedDurationMinutes" label="Expected duration (minutes)" type="number" value={routeForm.expectedDurationMinutes} onChange={handleRouteChange} />
-              <div className="flex items-end">
-                <button
-                  type="submit"
-                  disabled={busy}
-                  className="rounded-lg bg-brand-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {busy ? 'Saving…' : route ? 'Update route' : 'Create route'}
-                </button>
-              </div>
-            </form>
-          )}
-        </section>
-      )}
+      <RouteLegsPanel shipmentId={id} canManage={canManageOperations} />
 
       <section className="mt-6 rounded-xl border border-slate-200 bg-white p-6">
         <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-slate-500">Tracking timeline</h2>
         <TrackingTimeline events={events} />
+
+        {canManageOperations && (
+          <form onSubmit={handleCheckpointSubmit} className="mt-5 grid gap-3 border-t border-slate-100 pt-5 sm:grid-cols-2">
+            <TextField
+              id="checkpointLocation"
+              name="location"
+              label="Checkpoint location"
+              value={checkpointForm.location}
+              onChange={handleCheckpointChange}
+              placeholder="Vijayawada hub"
+            />
+            <TextField
+              id="checkpointNotes"
+              name="notes"
+              label="Checkpoint note (optional)"
+              value={checkpointForm.notes}
+              onChange={handleCheckpointChange}
+            />
+            <div className="sm:col-span-2">
+              <button
+                type="submit"
+                disabled={busy}
+                className="rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {busy ? 'Saving…' : 'Add checkpoint'}
+              </button>
+            </div>
+          </form>
+        )}
       </section>
     </AppLayout>
   )

@@ -21,7 +21,8 @@ export const ALLOWED_STATUS_TRANSITIONS = {
   CANCELLED: [],
 }
 
-export const CAN_CREATE_ROLES = ['BUSINESS_CLIENT', 'LOGISTICS_OPERATOR']
+// Customers book their own shipments too (Milestone 1).
+export const CAN_CREATE_ROLES = ['CUSTOMER', 'BUSINESS_CLIENT', 'LOGISTICS_OPERATOR']
 export const CAN_CHANGE_STATUS_ROLES = ['LOGISTICS_OPERATOR', 'ADMINISTRATOR']
 
 export const shipmentService = {
@@ -47,9 +48,11 @@ export const shipmentService = {
 
   updateLocation: (payload) => api.post('/tracking/location', payload).then((res) => res.data),
 
-  getRoute: (id) => api.get(`/routes/${id}`).then((res) => res.data),
+  /** Add a checkpoint to the timeline by hand, e.g. "reached Vijayawada hub". */
+  addTrackingEvent: (payload) => api.post('/tracking/events', payload).then((res) => res.data),
 
-  saveRoute: (payload) => api.post('/routes', payload).then((res) => res.data),
+  /** All route legs of a shipment, in travel order. See also routeService. */
+  getRoutes: (id) => api.get(`/routes/${id}`).then((res) => res.data),
 
   assignOperator: (id, operatorId) =>
     api.patch(`/shipments/${id}/operator`, { operatorId }).then((res) => res.data),

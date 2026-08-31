@@ -67,4 +67,10 @@ public class RouteUpdateRequest {
 
     @Size(max = 500, message = "Notes must not exceed 500 characters")
     private String notes;
+
+    /**
+     * Ask the server to recalculate distance, duration and traffic from Google
+     * Maps instead of keeping the stored values.
+     */
+    private Boolean refreshFromMaps;
 }

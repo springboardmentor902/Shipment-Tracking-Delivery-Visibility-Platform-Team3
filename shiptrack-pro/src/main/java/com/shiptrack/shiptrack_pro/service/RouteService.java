@@ -14,6 +14,12 @@ public interface RouteService {
     /** Update a leg or reassign its driver. Operator (owning the work) or administrator only. */
     RouteResponse updateRoute(Long routeId, RouteUpdateRequest request);
 
+    /**
+     * Recalculate coordinates, distance, duration and traffic for one leg from the
+     * Maps provider. Falls back to the stored values when Maps is unavailable.
+     */
+    RouteResponse refreshRouteFromMaps(Long routeId);
+
     /** All legs of a shipment in travel order. Readable by anyone allowed to see the shipment. */
     List<RouteResponse> getRoutes(Long shipmentId);
 

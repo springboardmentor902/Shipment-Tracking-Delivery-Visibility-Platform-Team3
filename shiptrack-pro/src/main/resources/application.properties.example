@@ -53,3 +53,8 @@ cloudinary.url=${CLOUDINARY_URL}
 
 # Google Maps (Milestone 2 integration)
 google.maps.api-key=${GOOGLE_MAPS_API_KEY:}
+# Leave the URLs as-is unless you proxy the Google APIs. When the key is blank the
+# app still works: distances fall back to a straight-line estimate.
+google.maps.geocode-url=https://maps.googleapis.com/maps/api/geocode/json
+google.maps.directions-url=https://maps.googleapis.com/maps/api/directions/json
+google.maps.timeout-ms=5000
