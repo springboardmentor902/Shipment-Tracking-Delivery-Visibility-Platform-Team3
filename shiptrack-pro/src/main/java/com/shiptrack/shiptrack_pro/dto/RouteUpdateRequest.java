@@ -6,30 +6,22 @@ import lombok.Data;
 import java.math.BigDecimal;
 
 /**
- * Payload for POST /api/routes — creates one route leg for a shipment.
- *
- * Only the shipment and the two addresses are mandatory. Coordinates,
- * distance and duration are optional here because the Google Maps
- * integration fills them in; an operator may also send known values.
+ * Payload for PUT /api/routes/{id} — partial update of one route leg,
+ * including driver reassignment. Only the fields you send are applied.
+ * The shipment a leg belongs to can never be changed.
  */
 @Data
-public class RouteRequest {
+public class RouteUpdateRequest {
 
-    @NotNull(message = "Shipment id is required")
-    private Long shipmentId;
-
-    /** Optional. When omitted the next free leg number is used. */
     @Positive(message = "Leg number must be greater than zero")
     private Integer legNumber;
 
-    /** Logistics operator who drives this leg. Optional at creation time. */
+    /** New driver for this leg. Must be a LOGISTICS_OPERATOR. */
     private Long driverId;
 
-    @NotBlank(message = "Origin address is required")
     @Size(max = 500, message = "Origin address must not exceed 500 characters")
     private String originAddress;
 
-    @NotBlank(message = "Destination address is required")
     @Size(max = 500, message = "Destination address must not exceed 500 characters")
     private String destinationAddress;
 
@@ -68,6 +60,10 @@ public class RouteRequest {
 
     @Size(max = 64, message = "Traffic condition must not exceed 64 characters")
     private String trafficCondition;
+
+    /** PLANNED, ACTIVE, COMPLETED or SKIPPED. */
+    @Size(max = 16, message = "Status must not exceed 16 characters")
+    private String status;
 
     @Size(max = 500, message = "Notes must not exceed 500 characters")
     private String notes;

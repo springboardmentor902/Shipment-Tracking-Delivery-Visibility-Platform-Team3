@@ -55,4 +55,51 @@ public interface ShipmentRepository extends JpaRepository<Shipment, Long> {
     Page<Shipment> findVisibleToOperatorByStatus(@Param("user") User user,
                                                  @Param("status") ShipmentStatus status,
                                                  Pageable pageable);
+
+    /**
+     * A customer sees shipments they booked themselves plus shipments addressed
+     * to them as the receiver. Nothing else is ever visible.
+     */
+    @Query("""
+           SELECT s FROM Shipment s
+           WHERE s.createdBy = :user
+              OR LOWER(s.receiverEmail) = LOWER(:email)
+           """)
+    Page<Shipment> findVisibleToCustomer(@Param("user") User user,
+                                         @Param("email") String email,
+                                         Pageable pageable);
+
+    @Query("""
+           SELECT s FROM Shipment s
+           WHERE (s.createdBy = :user OR LOWER(s.receiverEmail) = LOWER(:email))
+             AND s.status = :status
+           """)
+    Page<Shipment> findVisibleToCustomerByStatus(@Param("user") User user,
+                                                 @Param("email") String email,
+                                                 @Param("status") ShipmentStatus status,
+                                                 Pageable pageable);
+
+    /**
+     * A business client sees shipments created under their business account,
+     * whether created by themselves or by a customer account linked to the
+     * same business id (linked-customer behaviour, MM-20).
+     */
+    @Query("""
+           SELECT s FROM Shipment s
+           WHERE s.createdBy = :user
+              OR (:businessId IS NOT NULL AND s.businessId = :businessId)
+           """)
+    Page<Shipment> findVisibleToBusiness(@Param("user") User user,
+                                         @Param("businessId") Long businessId,
+                                         Pageable pageable);
+
+    @Query("""
+           SELECT s FROM Shipment s
+           WHERE (s.createdBy = :user OR (:businessId IS NOT NULL AND s.businessId = :businessId))
+             AND s.status = :status
+           """)
+    Page<Shipment> findVisibleToBusinessByStatus(@Param("user") User user,
+                                                 @Param("businessId") Long businessId,
+                                                 @Param("status") ShipmentStatus status,
+                                                 Pageable pageable);
 }

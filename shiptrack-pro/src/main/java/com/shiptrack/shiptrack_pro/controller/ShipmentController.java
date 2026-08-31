@@ -30,10 +30,11 @@ public class ShipmentController {
 
     /**
      * Create a shipment.
-     * Business clients and logistics operators only — customers are rejected.
+     * Customers, business clients and logistics operators may book one;
+     * support agents and administrators only manage existing shipments.
      */
     @PostMapping
-    @PreAuthorize("hasAnyRole('BUSINESS_CLIENT', 'LOGISTICS_OPERATOR')")
+    @PreAuthorize("hasAnyRole('CUSTOMER', 'BUSINESS_CLIENT', 'LOGISTICS_OPERATOR')")
     public ResponseEntity<ShipmentResponse> createShipment(@Valid @RequestBody ShipmentRequest request) {
         return new ResponseEntity<>(shipmentService.createShipment(request), HttpStatus.CREATED);
     }
@@ -69,7 +70,7 @@ public class ShipmentController {
 
     /** Edit shipment details. Partial payload — only the fields you send are applied. */
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyRole('BUSINESS_CLIENT', 'LOGISTICS_OPERATOR', 'ADMINISTRATOR')")
+    @PreAuthorize("hasAnyRole('CUSTOMER', 'BUSINESS_CLIENT', 'LOGISTICS_OPERATOR', 'ADMINISTRATOR')")
     public ResponseEntity<ShipmentResponse> updateShipment(@PathVariable Long id,
                                                            @Valid @RequestBody ShipmentUpdateRequest request) {
         return ResponseEntity.ok(shipmentService.updateShipment(id, request));
@@ -98,7 +99,7 @@ public class ShipmentController {
      * with a timestamp and reason, so analytics and audit history stay intact.
      */
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAnyRole('BUSINESS_CLIENT', 'LOGISTICS_OPERATOR', 'ADMINISTRATOR')")
+    @PreAuthorize("hasAnyRole('CUSTOMER', 'BUSINESS_CLIENT', 'LOGISTICS_OPERATOR', 'ADMINISTRATOR')")
     public ResponseEntity<ShipmentResponse> cancelShipment(@PathVariable Long id,
                                                            @Valid @RequestBody CancelShipmentRequest request) {
         return ResponseEntity.ok(shipmentService.cancelShipment(id, request));

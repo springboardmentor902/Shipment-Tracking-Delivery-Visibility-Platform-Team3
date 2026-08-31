@@ -50,3 +50,6 @@ firebase.service-account-path=${FIREBASE_SERVICE_ACCOUNT_PATH}
 
 cloudinary.url=${CLOUDINARY_URL}
 
+
+# Google Maps (Milestone 2 integration)
+google.maps.api-key=${GOOGLE_MAPS_API_KEY:}

@@ -53,11 +53,14 @@ public class ShipmentServiceImpl implements ShipmentService {
         User actor = currentUserService.getCurrentUser();
         Role actorRole = Role.valueOf(actor.getRole());
 
-        // Only business clients and logistics operators may create shipments.
-        // Customers can read but never create.
-        if (actorRole != Role.BUSINESS_CLIENT && actorRole != Role.LOGISTICS_OPERATOR) {
+        // Customers, business clients and logistics operators book shipments.
+        // Support agents and administrators manage, they do not book (MM-20).
+        if (actorRole != Role.CUSTOMER
+                && actorRole != Role.BUSINESS_CLIENT
+                && actorRole != Role.LOGISTICS_OPERATOR) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN,
-                    "Only BUSINESS_CLIENT and LOGISTICS_OPERATOR can create shipments. Your role: " + actorRole);
+                    "Only CUSTOMER, BUSINESS_CLIENT and LOGISTICS_OPERATOR can create shipments. Your role: "
+                            + actorRole);
         }
 
         ShipmentPriority priority = parsePriority(request.getPriority(), ShipmentPriority.STANDARD);
@@ -106,20 +109,20 @@ public class ShipmentServiceImpl implements ShipmentService {
                     ? shipmentRepository.findAll(pageable)
                     : shipmentRepository.findByStatus(filter, pageable);
 
-            // Assigned work plus anything they created themselves.
+            // Strictly the work assigned to this operator, nothing else.
             case LOGISTICS_OPERATOR -> filter == null
-                    ? shipmentRepository.findVisibleToOperator(actor, pageable)
-                    : shipmentRepository.findVisibleToOperatorByStatus(actor, filter, pageable);
+                    ? shipmentRepository.findByAssignedOperator(actor, pageable)
+                    : shipmentRepository.findByAssignedOperatorAndStatus(actor, filter, pageable);
 
-            // customer cannot create shipments, so show the ones sent to him
+            // Shipments the customer booked plus shipments addressed to them.
             case CUSTOMER -> filter == null
-                    ? shipmentRepository.findByReceiverEmailIgnoreCase(actor.getEmail(), pageable)
-                    : shipmentRepository.findByReceiverEmailIgnoreCaseAndStatus(actor.getEmail(), filter, pageable);
+                    ? shipmentRepository.findVisibleToCustomer(actor, actor.getEmail(), pageable)
+                    : shipmentRepository.findVisibleToCustomerByStatus(actor, actor.getEmail(), filter, pageable);
 
-            // business client sees what he created
+            // Everything booked under this business account, including linked customers.
             case BUSINESS_CLIENT -> filter == null
-                    ? shipmentRepository.findByCreatedBy(actor, pageable)
-                    : shipmentRepository.findByCreatedByAndStatus(actor, filter, pageable);
+                    ? shipmentRepository.findVisibleToBusiness(actor, actor.getId(), pageable)
+                    : shipmentRepository.findVisibleToBusinessByStatus(actor, actor.getId(), filter, pageable);
         };
 
         return page.map(this::toResponse);
@@ -315,6 +318,21 @@ public class ShipmentServiceImpl implements ShipmentService {
                         "Shipment not found with id: " + id));
     }
 
+    private boolean isCreator(Shipment shipment, User user) {
+        return Objects.equals(shipment.getCreatedBy().getId(), user.getId());
+    }
+
+    private boolean isAssignedOperator(Shipment shipment, User user) {
+        return shipment.getAssignedOperator() != null
+                && Objects.equals(shipment.getAssignedOperator().getId(), user.getId());
+    }
+
+    /** Business clients own every shipment booked under their business id. */
+    private boolean belongsToBusiness(Shipment shipment, User user) {
+        return shipment.getBusinessId() != null
+                && Objects.equals(shipment.getBusinessId(), user.getId());
+    }
+
     private boolean isTiedTo(Shipment shipment, User user) {
         boolean isCreator = Objects.equals(shipment.getCreatedBy().getId(), user.getId());
         boolean isOperator = shipment.getAssignedOperator() != null
@@ -334,8 +352,10 @@ public class ShipmentServiceImpl implements ShipmentService {
 
         boolean allowed = switch (actorRole) {
             case ADMINISTRATOR, SUPPORT_AGENT -> true;
-            case LOGISTICS_OPERATOR, BUSINESS_CLIENT -> isTiedTo(shipment, actor);
-            case CUSTOMER -> isReceiver(shipment, actor) || isTiedTo(shipment, actor);
+            // an operator only ever sees the work assigned to them
+            case LOGISTICS_OPERATOR -> isAssignedOperator(shipment, actor);
+            case BUSINESS_CLIENT -> isTiedTo(shipment, actor) || belongsToBusiness(shipment, actor);
+            case CUSTOMER -> isReceiver(shipment, actor) || isCreator(shipment, actor);
         };
 
         if (!allowed) {
@@ -347,8 +367,11 @@ public class ShipmentServiceImpl implements ShipmentService {
     private void assertCanModify(Shipment shipment, User actor, Role actorRole) {
         boolean allowed = switch (actorRole) {
             case ADMINISTRATOR -> true;
-            case BUSINESS_CLIENT, LOGISTICS_OPERATOR -> isTiedTo(shipment, actor);
-            case CUSTOMER, SUPPORT_AGENT -> false;
+            case LOGISTICS_OPERATOR -> isAssignedOperator(shipment, actor);
+            case BUSINESS_CLIENT -> isTiedTo(shipment, actor) || belongsToBusiness(shipment, actor);
+            // a customer may correct the shipment they booked themselves
+            case CUSTOMER -> isCreator(shipment, actor);
+            case SUPPORT_AGENT -> false;
         };
 
         if (!allowed) {

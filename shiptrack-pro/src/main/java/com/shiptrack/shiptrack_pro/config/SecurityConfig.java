@@ -50,10 +50,10 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
                         // ---- Shipment module ----
-                        // Creating a shipment is a business action: business clients and
-                        // logistics operators only. Customers can read but never create.
+                        // Customers, business clients and logistics operators book shipments.
+                        // Support agents and administrators only manage them.
                         .requestMatchers(HttpMethod.POST, "/api/shipments")
-                        .hasAnyRole("BUSINESS_CLIENT", "LOGISTICS_OPERATOR")
+                        .hasAnyRole("CUSTOMER", "BUSINESS_CLIENT", "LOGISTICS_OPERATOR")
 
                         // anyone can track a shipment with the tracking number, no login needed
                         .requestMatchers(HttpMethod.GET, "/api/shipments/tracking/**").permitAll()
@@ -64,8 +64,10 @@ public class SecurityConfig {
                         .hasAnyRole("CUSTOMER", "BUSINESS_CLIENT", "LOGISTICS_OPERATOR",
                                 "SUPPORT_AGENT", "ADMINISTRATOR")
 
+                        // Ownership is re-checked in the service layer: a customer may only
+                        // edit the shipment they booked themselves.
                         .requestMatchers(HttpMethod.PUT, "/api/shipments/**")
-                        .hasAnyRole("BUSINESS_CLIENT", "LOGISTICS_OPERATOR", "ADMINISTRATOR")
+                        .hasAnyRole("CUSTOMER", "BUSINESS_CLIENT", "LOGISTICS_OPERATOR", "ADMINISTRATOR")
 
                         // Lifecycle transitions are operational work.
                         .requestMatchers(HttpMethod.PATCH, "/api/shipments/*/operator")
@@ -76,7 +78,7 @@ public class SecurityConfig {
 
                         // Soft cancel — ownership is re-checked in the service layer.
                         .requestMatchers(HttpMethod.DELETE, "/api/shipments/**")
-                        .hasAnyRole("BUSINESS_CLIENT", "LOGISTICS_OPERATOR", "ADMINISTRATOR")
+                        .hasAnyRole("CUSTOMER", "BUSINESS_CLIENT", "LOGISTICS_OPERATOR", "ADMINISTRATOR")
 
                         // ---- Tracking timeline + live location ----
                         // anyone can see the timeline with just a tracking number
@@ -86,10 +88,15 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/tracking/location")
                         .hasAnyRole("LOGISTICS_OPERATOR", "ADMINISTRATOR")
 
-                        // ---- Routes ----
+                        // ---- Routes (multi-leg) ----
+                        // Only operators and admins plan, edit or reassign route legs.
                         .requestMatchers(HttpMethod.POST, "/api/routes")
                         .hasAnyRole("LOGISTICS_OPERATOR", "ADMINISTRATOR")
-                        .requestMatchers(HttpMethod.GET, "/api/routes/*").authenticated()
+                        .requestMatchers(HttpMethod.PUT, "/api/routes/**")
+                        .hasAnyRole("LOGISTICS_OPERATOR", "ADMINISTRATOR")
+                        // Customers and business clients may view routes of shipments they
+                        // are allowed to see; the service layer enforces that access.
+                        .requestMatchers(HttpMethod.GET, "/api/routes/**").authenticated()
 
                         // ---- Live delivery monitoring ----
                         .requestMatchers(HttpMethod.GET, "/api/monitoring/active")
