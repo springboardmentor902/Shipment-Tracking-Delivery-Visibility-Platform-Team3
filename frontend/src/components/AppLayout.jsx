@@ -1,5 +1,6 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import EnableAlertsButton from './EnableAlertsButton'
 
 export default function AppLayout({ children }) {
   const { user, logout } = useAuth()
@@ -22,7 +23,9 @@ export default function AppLayout({ children }) {
   ]
 
   function isActive(to) {
-    return to === '/shipments' ? location.pathname.startsWith('/shipments') : location.pathname === to
+    return to === '/shipments'
+      ? location.pathname.startsWith('/shipments')
+      : location.pathname === to
   }
 
   function navLinks() {
@@ -45,16 +48,27 @@ export default function AppLayout({ children }) {
     <div className="min-h-screen">
       <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur">
         <div className="mx-auto flex h-16 max-w-6xl items-center gap-5 px-4 sm:px-6">
-          <Link to="/shipments" className="shrink-0 font-semibold tracking-tight text-slate-900 hover:text-brand-700">
+          <Link
+            to="/shipments"
+            className="shrink-0 font-semibold tracking-tight text-slate-900 hover:text-brand-700"
+          >
             ShipTrack Pro
           </Link>
-          <nav className="hidden items-center gap-1 text-sm font-medium md:flex" aria-label="Main navigation">
+
+          <nav
+            className="hidden items-center gap-1 text-sm font-medium md:flex"
+            aria-label="Main navigation"
+          >
             {navLinks()}
           </nav>
+
           <div className="ml-auto flex shrink-0 items-center gap-3">
             <span className="hidden text-sm text-slate-500 xl:inline">
               {user?.fullName} · {user?.role?.replaceAll('_', ' ')}
             </span>
+
+            <EnableAlertsButton />
+
             <button
               onClick={handleLogout}
               className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
@@ -63,12 +77,14 @@ export default function AppLayout({ children }) {
             </button>
           </div>
         </div>
+
         <nav className="h-11 border-t border-slate-100 md:hidden" aria-label="Main navigation">
           <div className="mx-auto flex h-full max-w-6xl items-center gap-1 overflow-x-auto px-4 text-sm font-medium sm:px-6">
             {navLinks()}
           </div>
         </nav>
       </header>
+
       <main className="mx-auto max-w-6xl px-6 py-8">{children}</main>
     </div>
   )
