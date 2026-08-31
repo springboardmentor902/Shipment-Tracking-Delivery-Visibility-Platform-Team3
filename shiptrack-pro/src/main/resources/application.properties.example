@@ -58,3 +58,10 @@ google.maps.api-key=${GOOGLE_MAPS_API_KEY:}
 google.maps.geocode-url=https://maps.googleapis.com/maps/api/geocode/json
 google.maps.directions-url=https://maps.googleapis.com/maps/api/directions/json
 google.maps.timeout-ms=5000
+
+# ETA and delay risk (Milestone 4)
+# The forecast is recalculated on every tracking event; this sweep also catches
+# shipments that have gone quiet, where risk grows with time alone.
+eta.refresh.enabled=true
+eta.refresh.interval-ms=900000
+eta.refresh.initial-delay-ms=60000

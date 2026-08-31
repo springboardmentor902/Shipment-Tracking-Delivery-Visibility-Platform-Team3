@@ -106,6 +106,11 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/routes/**").authenticated()
 
                         // ---- Live delivery monitoring ----
+                        // ETA reads are authorized per shipment inside EtaService
+                        .requestMatchers(HttpMethod.GET, "/api/eta/**").authenticated()
+                        .requestMatchers(HttpMethod.POST, "/api/eta/**")
+                        .hasAnyRole("LOGISTICS_OPERATOR", "SUPPORT_AGENT", "ADMINISTRATOR")
+
                         .requestMatchers(HttpMethod.GET, "/api/monitoring/active")
                         .hasAnyRole("LOGISTICS_OPERATOR", "SUPPORT_AGENT", "ADMINISTRATOR")
 

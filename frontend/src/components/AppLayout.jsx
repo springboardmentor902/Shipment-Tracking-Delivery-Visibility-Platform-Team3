@@ -17,6 +17,7 @@ export default function AppLayout({ children }) {
   const links = [
     { to: '/shipments', label: 'Shipments' },
     { to: '/track', label: 'Track' },
+    { to: '/delays', label: 'Delays' },
     ...(canMonitor ? [{ to: '/monitoring', label: 'Monitoring' }] : []),
     ...(canViewBusinessAccount ? [{ to: '/business-account', label: 'Business account' }] : []),
     { to: '/profile', label: 'Profile' },

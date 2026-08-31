@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import AppLayout from '../components/AppLayout'
+import EtaPanel from '../components/EtaPanel'
 import LiveStatusPill from '../components/LiveStatusPill'
 import RouteLegsPanel from '../components/RouteLegsPanel'
 import StatusBadge from '../components/StatusBadge'
@@ -41,6 +42,8 @@ export default function ShipmentDetail() {
   const [locationForm, setLocationForm] = useState({ location: '', latitude: '', longitude: '', notes: '' })
   const [checkpointForm, setCheckpointForm] = useState({ location: '', notes: '' })
   const [livePosition, setLivePosition] = useState(null)
+  // bumped on every live update so the forecast reloads with the new position
+  const [etaRefreshKey, setEtaRefreshKey] = useState(0)
 
   /**
    * Applies a pushed update straight to the screen: the timeline gains a row,
@@ -60,6 +63,8 @@ export default function ShipmentDetail() {
     if (update.status) {
       setShipment((previous) => (previous ? { ...previous, status: update.status } : previous))
     }
+
+    setEtaRefreshKey((previous) => previous + 1)
 
     setEvents((previous) => {
       const row = {
@@ -554,6 +559,8 @@ export default function ShipmentDetail() {
           </div>
         </section>
       </div>
+
+      <EtaPanel shipmentId={id} canRecalculate={canManageOperations} refreshKey={etaRefreshKey} />
 
       <RouteLegsPanel shipmentId={id} canManage={canManageOperations} livePosition={livePosition} />
 

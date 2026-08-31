@@ -13,6 +13,7 @@ import com.shiptrack.shiptrack_pro.entity.TrackingEvent;
 import com.shiptrack.shiptrack_pro.security.CurrentUserService;
 import com.shiptrack.shiptrack_pro.security.ShipmentAccessPolicy;
 import com.shiptrack.shiptrack_pro.security.Role;
+import com.shiptrack.shiptrack_pro.service.EtaService;
 import com.shiptrack.shiptrack_pro.service.LiveTrackingPublisher;
 import com.shiptrack.shiptrack_pro.service.ShipmentService;
 import lombok.RequiredArgsConstructor;
@@ -47,6 +48,7 @@ public class ShipmentServiceImpl implements ShipmentService {
     private final CurrentUserService currentUserService;
     private final ShipmentAccessPolicy accessPolicy;
     private final LiveTrackingPublisher liveTrackingPublisher;
+    private final EtaService etaService;
     private final SecureRandom random = new SecureRandom();
 
     /* ===================== CREATE ===================== */
@@ -260,6 +262,8 @@ public class ShipmentServiceImpl implements ShipmentService {
         Shipment savedShipment = shipmentRepository.save(shipment);
         logEvent(savedShipment, target, null, request.getNotes(), actor);
         liveTrackingPublisher.publishStatus(savedShipment, request.getNotes(), actor.getFullName());
+        // the remaining journey just changed, so the forecast must too
+        etaService.refreshQuietly(savedShipment.getId());
         return toResponse(savedShipment);
     }
 
@@ -313,6 +317,7 @@ public class ShipmentServiceImpl implements ShipmentService {
         Shipment savedShipment = shipmentRepository.save(shipment);
         logEvent(savedShipment, ShipmentStatus.CANCELLED, null, request.getReason(), actor);
         liveTrackingPublisher.publishStatus(savedShipment, request.getReason(), actor.getFullName());
+        etaService.refreshQuietly(savedShipment.getId());
         return toResponse(savedShipment);
     }
 

@@ -16,6 +16,7 @@ import com.shiptrack.shiptrack_pro.repository.ShipmentRepository;
 import com.shiptrack.shiptrack_pro.repository.TrackingEventRepository;
 import com.shiptrack.shiptrack_pro.security.CurrentUserService;
 import com.shiptrack.shiptrack_pro.security.Role;
+import com.shiptrack.shiptrack_pro.service.EtaService;
 import com.shiptrack.shiptrack_pro.service.LiveTrackingPublisher;
 import com.shiptrack.shiptrack_pro.service.MapsService;
 import com.shiptrack.shiptrack_pro.service.ShipmentService;
@@ -43,6 +44,7 @@ public class TrackingServiceImpl implements TrackingService {
     private final CurrentUserService currentUserService;
     private final MapsService mapsService;
     private final LiveTrackingPublisher liveTrackingPublisher;
+    private final EtaService etaService;
 
     /* ===================== history ===================== */
 
@@ -105,6 +107,8 @@ public class TrackingServiceImpl implements TrackingService {
 
         TrackingEventResponse response = toResponse(event);
         liveTrackingPublisher.publishCheckpoint(shipment, response);
+        // a checkpoint changes what is left of the journey
+        etaService.refreshQuietly(shipment.getId());
         return response;
     }
 
@@ -133,6 +137,7 @@ public class TrackingServiceImpl implements TrackingService {
         TrackingEventResponse response = toResponse(event);
         // subscribers see the driver move without polling
         liveTrackingPublisher.publishLocation(shipment, response);
+        etaService.refreshQuietly(shipment.getId());
         return response;
     }
 

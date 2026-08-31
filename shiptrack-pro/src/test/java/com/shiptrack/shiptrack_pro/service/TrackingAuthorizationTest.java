@@ -13,6 +13,7 @@ import com.shiptrack.shiptrack_pro.repository.TrackingEventRepository;
 import com.shiptrack.shiptrack_pro.security.CurrentUserService;
 import com.shiptrack.shiptrack_pro.security.Role;
 import com.shiptrack.shiptrack_pro.service.impl.TrackingServiceImpl;
+import com.shiptrack.shiptrack_pro.service.EtaService;
 import com.shiptrack.shiptrack_pro.service.LiveTrackingPublisher;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -54,6 +55,7 @@ class TrackingAuthorizationTest {
     @Mock private CurrentUserService currentUserService;
     @Mock private MapsService mapsService;
     @Mock private LiveTrackingPublisher liveTrackingPublisher;
+    @Mock private EtaService etaService;
 
     @InjectMocks private TrackingServiceImpl trackingService;
 

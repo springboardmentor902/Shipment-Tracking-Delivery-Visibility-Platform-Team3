@@ -7,6 +7,7 @@ import ShipmentDetail from './pages/ShipmentDetail'
 import ShipmentEdit from './pages/ShipmentEdit'
 import Tracking from './pages/Tracking'
 import Monitoring from './pages/Monitoring'
+import AtRisk from './pages/AtRisk'
 import Profile from './pages/Profile'
 import ForgotPassword from './pages/ForgotPassword'
 import ResetPassword from './pages/ResetPassword'
@@ -30,6 +31,8 @@ export default function App() {
         <Route path="/shipments" element={<ShipmentList />} />
         <Route path="/shipments/:id" element={<ShipmentDetail />} />
         <Route path="/profile" element={<Profile />} />
+        {/* the list itself is scoped per role by the backend */}
+        <Route path="/delays" element={<AtRisk />} />
       </Route>
 
       <Route element={<ProtectedRoute allowedRoles={['BUSINESS_CLIENT', 'LOGISTICS_OPERATOR']} />}>

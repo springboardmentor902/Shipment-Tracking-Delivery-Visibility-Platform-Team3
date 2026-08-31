@@ -6,6 +6,7 @@ import StatusBadge from '../components/StatusBadge'
 import { useAuth } from '../context/AuthContext'
 import useLiveTracking from '../hooks/useLiveTracking'
 import { extractErrorMessage } from '../services/api'
+import { etaService, formatDelay, riskStyle } from '../services/etaService'
 import { shipmentService } from '../services/shipmentService'
 
 const EMPTY_LOCATION = {
@@ -33,6 +34,8 @@ export default function Monitoring() {
   const [now, setNow] = useState(Date.now())
   const [locationForm, setLocationForm] = useState(EMPTY_LOCATION)
   const [locationError, setLocationError] = useState('')
+  // shipmentId -> forecast, so the board can flag trouble without a second click
+  const [risks, setRisks] = useState({})
   const [updatingLocation, setUpdatingLocation] = useState(false)
   const canUpdateLocation = ['LOGISTICS_OPERATOR', 'ADMINISTRATOR'].includes(user?.role)
 
@@ -40,7 +43,13 @@ export default function Monitoring() {
     setLoading(true)
     setError('')
     try {
-      setShipments(await shipmentService.getActiveMonitoring())
+      const [active, atRisk] = await Promise.all([
+        shipmentService.getActiveMonitoring(),
+        // a failed risk lookup must not blank the board
+        etaService.listAtRisk(25).catch(() => []),
+      ])
+      setShipments(active)
+      setRisks(Object.fromEntries(atRisk.map((row) => [row.shipmentId, row])))
       setLastRefresh(Date.now())
     } catch (err) {
       setError(extractErrorMessage(err, 'Could not load active deliveries.'))
@@ -278,19 +287,20 @@ export default function Monitoring() {
               <th className="px-4 py-3 font-medium">Coordinates</th>
               <th className="px-4 py-3 font-medium">Updated</th>
               <th className="px-4 py-3 font-medium">ETA</th>
+              <th className="px-4 py-3 font-medium">Delay risk</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {loading && (
               <tr>
-                <td colSpan={7} className="px-4 py-10 text-center text-slate-500">
+                <td colSpan={8} className="px-4 py-10 text-center text-slate-500">
                   Loading active deliveries…
                 </td>
               </tr>
             )}
             {!loading && shipments.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-4 py-10 text-center text-slate-500">
+                <td colSpan={8} className="px-4 py-10 text-center text-slate-500">
                   No active deliveries right now.
                 </td>
               </tr>
@@ -323,6 +333,21 @@ export default function Monitoring() {
                   </td>
                   <td className="px-4 py-3 text-slate-500">{formatDateTime(shipment.lastUpdatedAt)}</td>
                   <td className="px-4 py-3 text-slate-500">{shipment.estimatedDeliveryDate || '—'}</td>
+                  <td className="px-4 py-3">
+                    {risks[shipment.shipmentId] ? (
+                      <span
+                        title={formatDelay(risks[shipment.shipmentId].expectedDelayMinutes)}
+                        className={`rounded-full px-2.5 py-1 text-xs font-medium ${
+                          riskStyle(risks[shipment.shipmentId].riskLevel).badge
+                        }`}
+                      >
+                        {riskStyle(risks[shipment.shipmentId].riskLevel).label} ·{' '}
+                        {risks[shipment.shipmentId].delayRiskScore}
+                      </span>
+                    ) : (
+                      <span className="text-xs text-slate-400">On track</span>
+                    )}
+                  </td>
                 </tr>
               ))}
           </tbody>

@@ -14,6 +14,7 @@ import com.shiptrack.shiptrack_pro.repository.ShipmentRepository;
 import com.shiptrack.shiptrack_pro.repository.UserRepository;
 import com.shiptrack.shiptrack_pro.security.CurrentUserService;
 import com.shiptrack.shiptrack_pro.security.Role;
+import com.shiptrack.shiptrack_pro.service.EtaService;
 import com.shiptrack.shiptrack_pro.service.MapsService;
 import com.shiptrack.shiptrack_pro.service.RouteService;
 import com.shiptrack.shiptrack_pro.service.ShipmentService;
@@ -40,6 +41,7 @@ public class RouteServiceImpl implements RouteService {
     private final ShipmentService shipmentService;
     private final CurrentUserService currentUserService;
     private final MapsService mapsService;
+    private final EtaService etaService;
 
     /* ===================== CREATE ===================== */
 
@@ -92,7 +94,10 @@ public class RouteServiceImpl implements RouteService {
         // fill in coordinates, distance, duration and traffic from Google Maps
         enrich(route, false);
 
-        return toResponse(deliveryRouteRepository.save(route));
+        DeliveryRoute saved = deliveryRouteRepository.save(route);
+        // route geometry drives the ETA, so refresh the forecast
+        etaService.refreshQuietly(saved.getShipment().getId());
+        return toResponse(saved);
     }
 
     /* ===================== UPDATE ===================== */
@@ -159,7 +164,10 @@ public class RouteServiceImpl implements RouteService {
         // Re-geocode changed addresses and recompute metrics we do not have.
         enrich(route, Boolean.TRUE.equals(request.getRefreshFromMaps()));
 
-        return toResponse(deliveryRouteRepository.save(route));
+        DeliveryRoute saved = deliveryRouteRepository.save(route);
+        // route geometry drives the ETA, so refresh the forecast
+        etaService.refreshQuietly(saved.getShipment().getId());
+        return toResponse(saved);
     }
 
     /* ===================== REFRESH FROM MAPS ===================== */
@@ -180,7 +188,10 @@ public class RouteServiceImpl implements RouteService {
         }
 
         enrich(route, true);
-        return toResponse(deliveryRouteRepository.save(route));
+        DeliveryRoute saved = deliveryRouteRepository.save(route);
+        // route geometry drives the ETA, so refresh the forecast
+        etaService.refreshQuietly(saved.getShipment().getId());
+        return toResponse(saved);
     }
 
     /* ===================== MAPS ENRICHMENT ===================== */

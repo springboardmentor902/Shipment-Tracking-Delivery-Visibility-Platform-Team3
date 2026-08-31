@@ -48,6 +48,7 @@ class RouteMetricsFallbackTest {
     @Mock private ShipmentService shipmentService;
     @Mock private CurrentUserService currentUserService;
     @Mock private MapsService mapsService;
+    @Mock private EtaService etaService;
 
     @InjectMocks private RouteServiceImpl routeService;
 
