@@ -11,7 +11,9 @@ import com.shiptrack.shiptrack_pro.repository.TrackingEventRepository;
 import com.shiptrack.shiptrack_pro.repository.UserRepository;
 import com.shiptrack.shiptrack_pro.entity.TrackingEvent;
 import com.shiptrack.shiptrack_pro.security.CurrentUserService;
+import com.shiptrack.shiptrack_pro.security.ShipmentAccessPolicy;
 import com.shiptrack.shiptrack_pro.security.Role;
+import com.shiptrack.shiptrack_pro.service.LiveTrackingPublisher;
 import com.shiptrack.shiptrack_pro.service.ShipmentService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -43,6 +45,8 @@ public class ShipmentServiceImpl implements ShipmentService {
     private final TrackingEventRepository trackingEventRepository;
     private final UserRepository userRepository;
     private final CurrentUserService currentUserService;
+    private final ShipmentAccessPolicy accessPolicy;
+    private final LiveTrackingPublisher liveTrackingPublisher;
     private final SecureRandom random = new SecureRandom();
 
     /* ===================== CREATE ===================== */
@@ -255,6 +259,7 @@ public class ShipmentServiceImpl implements ShipmentService {
 
         Shipment savedShipment = shipmentRepository.save(shipment);
         logEvent(savedShipment, target, null, request.getNotes(), actor);
+        liveTrackingPublisher.publishStatus(savedShipment, request.getNotes(), actor.getFullName());
         return toResponse(savedShipment);
     }
 
@@ -307,6 +312,7 @@ public class ShipmentServiceImpl implements ShipmentService {
 
         Shipment savedShipment = shipmentRepository.save(shipment);
         logEvent(savedShipment, ShipmentStatus.CANCELLED, null, request.getReason(), actor);
+        liveTrackingPublisher.publishStatus(savedShipment, request.getReason(), actor.getFullName());
         return toResponse(savedShipment);
     }
 
@@ -347,18 +353,8 @@ public class ShipmentServiceImpl implements ShipmentService {
     }
 
     private void assertCanView(Shipment shipment) {
-        User actor = currentUserService.getCurrentUser();
-        Role actorRole = Role.valueOf(actor.getRole());
-
-        boolean allowed = switch (actorRole) {
-            case ADMINISTRATOR, SUPPORT_AGENT -> true;
-            // an operator only ever sees the work assigned to them
-            case LOGISTICS_OPERATOR -> isAssignedOperator(shipment, actor);
-            case BUSINESS_CLIENT -> isTiedTo(shipment, actor) || belongsToBusiness(shipment, actor);
-            case CUSTOMER -> isReceiver(shipment, actor) || isCreator(shipment, actor);
-        };
-
-        if (!allowed) {
+        // same rules the live tracking socket applies to a SUBSCRIBE
+        if (!accessPolicy.canView(shipment, currentUserService.getCurrentUser())) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN,
                     "You do not have access to this shipment");
         }

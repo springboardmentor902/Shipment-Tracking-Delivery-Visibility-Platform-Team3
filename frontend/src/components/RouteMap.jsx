@@ -60,12 +60,21 @@ function collectPoints(legs) {
  * absent, the script is blocked, or the legs have not been geocoded yet — the
  * page must never look broken just because Maps is unavailable.
  */
-export default function RouteMap({ legs = [], height = 320 }) {
+export default function RouteMap({ legs = [], livePosition = null, height = 320 }) {
   const containerRef = useRef(null)
   const [failure, setFailure] = useState(MAPS_KEY ? '' : 'missing-key')
 
   const points = useMemo(() => collectPoints(legs), [legs])
-  const hasCoordinates = points.some((item) => item.origin || item.destination || item.driver)
+  // a ping that just arrived over the socket, not yet reflected in the legs
+  const live = useMemo(() => {
+    if (!livePosition) return null
+    const lat = toNumber(livePosition.latitude)
+    const lng = toNumber(livePosition.longitude)
+    return lat === null || lng === null ? null : { lat, lng, label: livePosition.location }
+  }, [livePosition])
+
+  const hasCoordinates =
+    Boolean(live) || points.some((item) => item.origin || item.destination || item.driver)
 
   useEffect(() => {
     if (!hasCoordinates || !MAPS_KEY) return
@@ -77,7 +86,8 @@ export default function RouteMap({ legs = [], height = 320 }) {
 
         const map = new maps.Map(containerRef.current, {
           zoom: 6,
-          center: points[0].origin || points[0].destination || points[0].driver,
+          center:
+            live || points[0]?.origin || points[0]?.destination || points[0]?.driver || { lat: 20.6, lng: 78.9 },
           mapTypeControl: false,
           streetViewControl: false,
         })
@@ -128,6 +138,24 @@ export default function RouteMap({ legs = [], height = 320 }) {
           }
         })
 
+        if (live) {
+          new maps.Marker({
+            map,
+            position: live,
+            zIndex: 999,
+            title: `Live position${live.label ? ` · ${live.label}` : ''}`,
+            icon: {
+              path: maps.SymbolPath.CIRCLE,
+              scale: 9,
+              fillColor: '#dc2626',
+              fillOpacity: 1,
+              strokeColor: '#ffffff',
+              strokeWeight: 3,
+            },
+          })
+          bounds.extend(live)
+        }
+
         if (!bounds.isEmpty()) {
           map.fitBounds(bounds, 48)
         }
@@ -139,7 +167,7 @@ export default function RouteMap({ legs = [], height = 320 }) {
     return () => {
       cancelled = true
     }
-  }, [hasCoordinates, points])
+  }, [hasCoordinates, points, live])
 
   if (!hasCoordinates) {
     return (
@@ -158,6 +186,12 @@ export default function RouteMap({ legs = [], height = 320 }) {
             ? 'Map preview is off because VITE_GOOGLE_MAPS_API_KEY is not set.'
             : 'Google Maps could not be loaded, showing coordinates instead.'}
         </p>
+        {live && (
+          <p className="mt-2 font-mono text-xs text-red-700">
+            live position {live.lat}, {live.lng}
+            {live.label ? ` · ${live.label}` : ''}
+          </p>
+        )}
         <ul className="mt-3 space-y-2">
           {points.map(({ leg, origin, destination, driver }) => (
             <li key={leg.id} className="rounded border border-slate-200 bg-white p-2.5">

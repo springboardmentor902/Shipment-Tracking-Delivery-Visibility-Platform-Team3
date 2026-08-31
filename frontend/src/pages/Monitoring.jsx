@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import AppLayout from '../components/AppLayout'
+import LiveStatusPill from '../components/LiveStatusPill'
 import StatusBadge from '../components/StatusBadge'
 import { useAuth } from '../context/AuthContext'
+import useLiveTracking from '../hooks/useLiveTracking'
 import { extractErrorMessage } from '../services/api'
 import { shipmentService } from '../services/shipmentService'
 
@@ -47,9 +49,42 @@ export default function Monitoring() {
     }
   }, [])
 
+  /**
+   * Patches the row of the shipment that just moved. A push for a shipment that
+   * is not on screen yet (a delivery that just went active) triggers a reload.
+   */
+  const handleLiveUpdate = useCallback(
+    (update) => {
+      let known = false
+      setShipments((previous) =>
+        previous.map((row) => {
+          if (row.shipmentId !== update.shipmentId) return row
+          known = true
+          return {
+            ...row,
+            status: update.status || row.status,
+            lastLocation: update.location || row.lastLocation,
+            lastLatitude: update.latitude ?? row.lastLatitude,
+            lastLongitude: update.longitude ?? row.lastLongitude,
+            lastUpdatedAt: update.recordedAt || row.lastUpdatedAt,
+          }
+        })
+      )
+      setLastRefresh(Date.now())
+      if (!known) load()
+    },
+    [load]
+  )
+
+  const { status: liveStatus, error: liveError, lastUpdate } = useLiveTracking({
+    destination: '/topic/monitoring/active',
+    onUpdate: handleLiveUpdate,
+  })
+
   useEffect(() => {
     load()
-    const refreshTimer = window.setInterval(load, 15000)
+    // the socket carries the changes; the poll is only a safety net now
+    const refreshTimer = window.setInterval(load, 60000)
     const clockTimer = window.setInterval(() => setNow(Date.now()), 1000)
     return () => {
       window.clearInterval(refreshTimer)
@@ -109,9 +144,15 @@ export default function Monitoring() {
     <AppLayout>
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-xl font-semibold text-slate-900">Live monitoring</h1>
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="text-xl font-semibold text-slate-900">Live monitoring</h1>
+            <LiveStatusPill status={liveStatus} error={liveError} updatedAt={lastUpdate?.recordedAt} />
+          </div>
           <p className="mt-1 text-sm text-slate-500">
-            Active deliveries refresh automatically every 15 seconds. {updatedAgo()}.
+            {liveStatus === 'live'
+              ? 'Driver positions arrive the moment they are recorded.'
+              : 'Falling back to a refresh every 60 seconds.'}{' '}
+            {updatedAgo()}.
           </p>
         </div>
         <button

@@ -46,7 +46,7 @@ function LegStatusBadge({ status }) {
  * Read-only for customers and business clients; operators and admins can add
  * legs, change a leg's status and pull fresh distance/traffic from Google Maps.
  */
-export default function RouteLegsPanel({ shipmentId, canManage = false }) {
+export default function RouteLegsPanel({ shipmentId, canManage = false, livePosition = null }) {
   const [legs, setLegs] = useState([])
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
@@ -180,7 +180,7 @@ export default function RouteLegsPanel({ shipmentId, canManage = false }) {
         <p className="text-sm text-slate-500">Loading route…</p>
       ) : (
         <>
-          <RouteMap legs={legs} />
+          <RouteMap legs={legs} livePosition={livePosition} />
 
           {legs.length === 0 ? (
             <p className="mt-4 text-sm text-slate-500">No route legs have been planned yet.</p>

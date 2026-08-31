@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import AppLayout from '../components/AppLayout'
+import LiveStatusPill from '../components/LiveStatusPill'
 import RouteLegsPanel from '../components/RouteLegsPanel'
 import StatusBadge from '../components/StatusBadge'
 import TextField from '../components/TextField'
 import TrackingTimeline from '../components/TrackingTimeline'
 import { useAuth } from '../context/AuthContext'
+import useLiveTracking from '../hooks/useLiveTracking'
 import { extractErrorMessage } from '../services/api'
 import { ALLOWED_STATUS_TRANSITIONS, CAN_CHANGE_STATUS_ROLES, shipmentService } from '../services/shipmentService'
 
@@ -38,6 +40,51 @@ export default function ShipmentDetail() {
   const [operatorId, setOperatorId] = useState('')
   const [locationForm, setLocationForm] = useState({ location: '', latitude: '', longitude: '', notes: '' })
   const [checkpointForm, setCheckpointForm] = useState({ location: '', notes: '' })
+  const [livePosition, setLivePosition] = useState(null)
+
+  /**
+   * Applies a pushed update straight to the screen: the timeline gains a row,
+   * the map marker moves and a status change updates the header, all without a
+   * refetch.
+   */
+  const handleLiveUpdate = useCallback((update) => {
+    if (update.latitude != null && update.longitude != null) {
+      setLivePosition({
+        latitude: update.latitude,
+        longitude: update.longitude,
+        location: update.location,
+        recordedAt: update.recordedAt,
+      })
+    }
+
+    if (update.status) {
+      setShipment((previous) => (previous ? { ...previous, status: update.status } : previous))
+    }
+
+    setEvents((previous) => {
+      const row = {
+        id: `live-${update.recordedAt || Date.now()}-${previous.length}`,
+        status: update.status,
+        location: update.location,
+        latitude: update.latitude,
+        longitude: update.longitude,
+        notes: update.notes,
+        recordedByName: update.recordedByName,
+        recordedAt: update.recordedAt,
+      }
+      // the operator's own POST already appended this event
+      const duplicate = previous.some(
+        (event) => event.recordedAt === row.recordedAt && event.location === row.location
+      )
+      return duplicate ? previous : [...previous, row]
+    })
+  }, [])
+
+  const { status: liveStatus, error: liveError, lastUpdate } = useLiveTracking({
+    destination: `/topic/shipments/${id}`,
+    enabled: Boolean(id),
+    onUpdate: handleLiveUpdate,
+  })
 
   const loadTracking = useCallback(async () => {
     try {
@@ -260,6 +307,11 @@ export default function ShipmentDetail() {
           <h1 className="font-mono text-xl font-semibold text-slate-900">{shipment.trackingNumber}</h1>
           <StatusBadge status={shipment.status} />
           <span className="text-sm text-slate-500">{shipment.priority}</span>
+          <LiveStatusPill
+            status={liveStatus}
+            error={liveError}
+            updatedAt={lastUpdate?.recordedAt || livePosition?.recordedAt}
+          />
           {canEdit && (
             <Link
               to={`/shipments/${id}/edit`}
@@ -503,7 +555,7 @@ export default function ShipmentDetail() {
         </section>
       </div>
 
-      <RouteLegsPanel shipmentId={id} canManage={canManageOperations} />
+      <RouteLegsPanel shipmentId={id} canManage={canManageOperations} livePosition={livePosition} />
 
       <section className="mt-6 rounded-xl border border-slate-200 bg-white p-6">
         <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-slate-500">Tracking timeline</h2>

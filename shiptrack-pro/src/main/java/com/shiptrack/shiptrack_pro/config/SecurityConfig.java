@@ -49,6 +49,11 @@ public class SecurityConfig {
                         // CORS preflight must never be authenticated
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
+                        // The tracking socket handshake carries no Authorization header;
+                        // the JWT is checked on the STOMP CONNECT frame instead
+                        // (StompAuthChannelInterceptor).
+                        .requestMatchers("/api/ws/tracking/**").permitAll()
+
                         // ---- Shipment module ----
                         // Customers, business clients and logistics operators book shipments.
                         // Support agents and administrators only manage them.

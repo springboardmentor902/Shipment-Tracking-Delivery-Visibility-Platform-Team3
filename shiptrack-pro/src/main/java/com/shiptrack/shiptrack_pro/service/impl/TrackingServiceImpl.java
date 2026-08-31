@@ -16,6 +16,7 @@ import com.shiptrack.shiptrack_pro.repository.ShipmentRepository;
 import com.shiptrack.shiptrack_pro.repository.TrackingEventRepository;
 import com.shiptrack.shiptrack_pro.security.CurrentUserService;
 import com.shiptrack.shiptrack_pro.security.Role;
+import com.shiptrack.shiptrack_pro.service.LiveTrackingPublisher;
 import com.shiptrack.shiptrack_pro.service.MapsService;
 import com.shiptrack.shiptrack_pro.service.ShipmentService;
 import com.shiptrack.shiptrack_pro.service.TrackingService;
@@ -41,6 +42,7 @@ public class TrackingServiceImpl implements TrackingService {
     private final ShipmentService shipmentService;
     private final CurrentUserService currentUserService;
     private final MapsService mapsService;
+    private final LiveTrackingPublisher liveTrackingPublisher;
 
     /* ===================== history ===================== */
 
@@ -100,7 +102,10 @@ public class TrackingServiceImpl implements TrackingService {
                 .build());
 
         updateActiveLeg(shipment, actor, latitude, longitude);
-        return toResponse(event);
+
+        TrackingEventResponse response = toResponse(event);
+        liveTrackingPublisher.publishCheckpoint(shipment, response);
+        return response;
     }
 
     /* ===================== live location ping ===================== */
@@ -124,7 +129,11 @@ public class TrackingServiceImpl implements TrackingService {
                 .build());
 
         updateActiveLeg(shipment, actor, request.getLatitude(), request.getLongitude());
-        return toResponse(event);
+
+        TrackingEventResponse response = toResponse(event);
+        // subscribers see the driver move without polling
+        liveTrackingPublisher.publishLocation(shipment, response);
+        return response;
     }
 
     /* ===================== helpers ===================== */

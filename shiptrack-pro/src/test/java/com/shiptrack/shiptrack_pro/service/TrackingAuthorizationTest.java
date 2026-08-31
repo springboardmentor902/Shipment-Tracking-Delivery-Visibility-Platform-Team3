@@ -13,6 +13,7 @@ import com.shiptrack.shiptrack_pro.repository.TrackingEventRepository;
 import com.shiptrack.shiptrack_pro.security.CurrentUserService;
 import com.shiptrack.shiptrack_pro.security.Role;
 import com.shiptrack.shiptrack_pro.service.impl.TrackingServiceImpl;
+import com.shiptrack.shiptrack_pro.service.LiveTrackingPublisher;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -52,6 +53,7 @@ class TrackingAuthorizationTest {
     @Mock private ShipmentService shipmentService;
     @Mock private CurrentUserService currentUserService;
     @Mock private MapsService mapsService;
+    @Mock private LiveTrackingPublisher liveTrackingPublisher;
 
     @InjectMocks private TrackingServiceImpl trackingService;
 
@@ -104,6 +106,7 @@ class TrackingAuthorizationTest {
 
         assertEquals(HttpStatus.FORBIDDEN, error.getStatusCode());
         verify(trackingEventRepository, never()).save(any());
+        verify(liveTrackingPublisher, never()).publishLocation(any(), any());
     }
 
     @Test
@@ -117,6 +120,7 @@ class TrackingAuthorizationTest {
 
         assertEquals(HttpStatus.FORBIDDEN, error.getStatusCode());
         verify(trackingEventRepository, never()).save(any());
+        verify(liveTrackingPublisher, never()).publishLocation(any(), any());
     }
 
     @Test
@@ -144,6 +148,8 @@ class TrackingAuthorizationTest {
         // the first ping puts the leg in progress
         assertEquals(RouteLegStatus.ACTIVE, leg.getStatus());
         verify(deliveryRouteRepository).save(leg);
+        // watchers of this shipment are pushed the new position
+        verify(liveTrackingPublisher).publishLocation(shipment, response);
     }
 
     @Test
