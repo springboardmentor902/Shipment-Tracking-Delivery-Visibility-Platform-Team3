@@ -14,4 +14,6 @@ public interface UserService {
     UserResponse getUserProfile(Long userId);
     UserResponse updateUserRole(Long userId, String newRole);
     UserResponse updateUserStatus(Long userId, String status);
+    LoginResponse loginWithOAuth(String email, String fullName);
 }
+

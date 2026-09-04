@@ -13,13 +13,12 @@ import com.shiptrack.shiptrack_pro.entity.TrackingEvent;
 import com.shiptrack.shiptrack_pro.repository.TrackingEventRepository;
 
 import java.time.LocalDateTime;
-
-
+import com.shiptrack.shiptrack_pro.service.NotificationService;
 @Service
 @RequiredArgsConstructor
 public class RouteLocationServiceImpl implements RouteLocationService {
-
-    private final RouteRepository routeRepository;
+	private final NotificationService notificationService;
+	private final RouteRepository routeRepository;
     private final SimpMessagingTemplate messagingTemplate;
     private final TrackingEventRepository trackingEventRepository;
     @Override
@@ -45,6 +44,11 @@ public class RouteLocationServiceImpl implements RouteLocationService {
                 .build();
 
         trackingEventRepository.save(trackingEvent);
+        notificationService.send(
+                "PUSH",
+                route.getShipment().getCustomer(),
+                route.getShipment()
+        );
 
         // Broadcast location to the shipment-specific topic
         Long shipmentId = route.getShipment().getId();
