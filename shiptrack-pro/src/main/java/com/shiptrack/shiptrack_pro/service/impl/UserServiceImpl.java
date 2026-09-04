@@ -1,5 +1,5 @@
 package com.shiptrack.shiptrack_pro.service.impl;
- 
+
 import com.shiptrack.shiptrack_pro.dto.LoginRequest;
 import com.shiptrack.shiptrack_pro.dto.LoginResponse;
 import com.shiptrack.shiptrack_pro.dto.RegisterRequest;
@@ -14,40 +14,47 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
- 
+
 import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.List;
- 
+import java.util.UUID;
+
 @Service
 @RequiredArgsConstructor
 public class UserServiceImpl implements UserService {
- 
+
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
- 
+
     @Override
     public UserResponse registerUser(RegisterRequest request) {
+
         if (userRepository.existsByEmail(request.getEmail())) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT,
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
                     "Email already registered: " + request.getEmail());
         }
- 
+
         Role requestedRole;
+
         try {
             requestedRole = Role.valueOf(request.getRole().toUpperCase());
         } catch (IllegalArgumentException e) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Invalid role: " + request.getRole() + ". Must be one of: " +
-                            Arrays.toString(Role.values()));
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Invalid role: " + request.getRole()
+                            + ". Must be one of: "
+                            + Arrays.toString(Role.values()));
         }
- 
+
         if (requestedRole == Role.ADMINISTRATOR) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
                     "Administrator accounts cannot be created through registration.");
         }
- 
+
         User user = User.builder()
                 .fullName(request.getFullName())
                 .email(request.getEmail())
@@ -56,72 +63,152 @@ public class UserServiceImpl implements UserService {
                 .role(requestedRole.name())
                 .status("ACTIVE")
                 .build();
- 
+
         User savedUser = userRepository.save(user);
+
         return mapToResponse(savedUser);
     }
- 
+
     @Override
     public LoginResponse loginUser(LoginRequest request) {
+
         User user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.UNAUTHORIZED, "Invalid email or password"));
- 
-        if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid email or password");
+                        HttpStatus.UNAUTHORIZED,
+                        "Invalid email or password"));
+
+        if (!passwordEncoder.matches(
+                request.getPassword(),
+                user.getPassword())) {
+
+            throw new ResponseStatusException(
+                    HttpStatus.UNAUTHORIZED,
+                    "Invalid email or password");
         }
- 
+
         if (!"ACTIVE".equals(user.getStatus())) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
-                    "Account is not active. Current status: " + user.getStatus());
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "Account is not active. Current status: "
+                            + user.getStatus());
         }
- 
+
         user.setLastLoginAt(LocalDateTime.now());
+
         User updatedUser = userRepository.save(user);
- 
-        String token = jwtUtil.generateToken(updatedUser.getEmail(), updatedUser.getRole());
- 
+
+        String token = jwtUtil.generateToken(
+                updatedUser.getEmail(),
+                updatedUser.getRole());
+
         return LoginResponse.builder()
                 .token(token)
                 .tokenType("Bearer")
                 .user(mapToResponse(updatedUser))
                 .build();
     }
- 
+
+    /*
+     * GitHub OAuth2 Login
+     *
+     * If the GitHub email already exists:
+     *      Login using the existing account.
+     *
+     * If the GitHub email does not exist:
+     *      Create a new CUSTOMER account.
+     */
+    @Override
+    public LoginResponse loginWithOAuth(String email, String fullName) {
+
+        User user = userRepository.findByEmail(email)
+                .orElseGet(() -> {
+
+                    User newUser = User.builder()
+                            .fullName(fullName)
+                            .email(email)
+                            .password(passwordEncoder.encode(
+                                    UUID.randomUUID().toString()))
+                            .role(Role.CUSTOMER.name())
+                            .status("ACTIVE")
+                            .build();
+
+                    return userRepository.save(newUser);
+                });
+
+        if (!"ACTIVE".equals(user.getStatus())) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "Account is not active. Current status: "
+                            + user.getStatus());
+        }
+
+        user.setLastLoginAt(LocalDateTime.now());
+
+        User updatedUser = userRepository.save(user);
+
+        String token = jwtUtil.generateToken(
+                updatedUser.getEmail(),
+                updatedUser.getRole());
+
+        return LoginResponse.builder()
+                .token(token)
+                .tokenType("Bearer")
+                .user(mapToResponse(updatedUser))
+                .build();
+    }
+
     @Override
     public List<UserResponse> getAllUsers() {
+
         return userRepository.findAll()
                 .stream()
                 .map(this::mapToResponse)
                 .toList();
     }
- 
+
     @Override
-    public UserResponse updateUserRole(Long userId, String newRole) {
+    public UserResponse updateUserRole(
+            Long userId,
+            String newRole) {
+
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND, "User not found with id: " + userId));
- 
+                        HttpStatus.NOT_FOUND,
+                        "User not found with id: " + userId));
+
         Role role;
+
         try {
             role = Role.valueOf(newRole);
         } catch (IllegalArgumentException e) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Invalid role: " + newRole + ". Must be one of: " +
-                            Arrays.toString(Role.values()));
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Invalid role: " + newRole
+                            + ". Must be one of: "
+                            + Arrays.toString(Role.values()));
         }
- 
-        if (role == Role.ADMINISTRATOR && userRepository.existsByRole("ADMINISTRATOR")) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT,
-                    "An administrator account already exists. Only one administrator is allowed.");
+
+        if (role == Role.ADMINISTRATOR
+                && userRepository.existsByRole("ADMINISTRATOR")) {
+
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "An administrator account already exists. "
+                            + "Only one administrator is allowed.");
         }
- 
+
         user.setRole(role.name());
+
         User updatedUser = userRepository.save(user);
+
         return mapToResponse(updatedUser);
     }
+
     @Override
-    public UserResponse updateUserStatus(Long userId, String status) {
+    public UserResponse updateUserStatus(
+            Long userId,
+            String status) {
+
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND,
@@ -133,7 +220,9 @@ public class UserServiceImpl implements UserService {
 
         return mapToResponse(updatedUser);
     }
+
     private UserResponse mapToResponse(User user) {
+
         return UserResponse.builder()
                 .id(user.getId())
                 .fullName(user.getFullName())
@@ -145,9 +234,9 @@ public class UserServiceImpl implements UserService {
                 .build();
     }
 
-	@Override
-	public UserResponse getUserProfile(Long userId) {
-		// TODO Auto-generated method stub
-		return null;
-	}
+    @Override
+    public UserResponse getUserProfile(Long userId) {
+        // TODO Auto-generated method stub
+        return null;
+    }
 }
