@@ -9,6 +9,11 @@ import org.springframework.http.HttpStatus;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
+import com.shiptrack.shiptrack_pro.entity.TrackingEvent;
+import com.shiptrack.shiptrack_pro.repository.TrackingEventRepository;
+
+import java.time.LocalDateTime;
+
 
 @Service
 @RequiredArgsConstructor
@@ -16,7 +21,7 @@ public class RouteLocationServiceImpl implements RouteLocationService {
 
     private final RouteRepository routeRepository;
     private final SimpMessagingTemplate messagingTemplate;
-
+    private final TrackingEventRepository trackingEventRepository;
     @Override
     public void updateLocation(Long routeId, LocationRequest request) {
 
@@ -31,6 +36,15 @@ public class RouteLocationServiceImpl implements RouteLocationService {
         route.setLastKnownLongitude(request.getLongitude());
 
         routeRepository.save(route);
+        TrackingEvent trackingEvent = TrackingEvent.builder()
+                .shipment(route.getShipment())
+                .latitude(request.getLatitude())
+                .longitude(request.getLongitude())
+                .status("LOCATION_UPDATED")
+                .eventTime(LocalDateTime.now())
+                .build();
+
+        trackingEventRepository.save(trackingEvent);
 
         // Broadcast location to the shipment-specific topic
         Long shipmentId = route.getShipment().getId();
