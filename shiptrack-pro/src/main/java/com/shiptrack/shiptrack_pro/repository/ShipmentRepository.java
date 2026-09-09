@@ -12,11 +12,13 @@ public interface ShipmentRepository extends JpaRepository<Shipment, Long> {
     boolean existsByTrackingNumber(String trackingNumber);
 
     List<Shipment> findByCustomer(User customer);
-<<<<<<< HEAD
-    List<Shipment> findByStatus(String status);
-=======
 
->>>>>>> 53a57603dd48b71c537d4a798a57cf9b5c904611
+    List<Shipment> findByStatus(String status);
+
+    long countByStatus(String status);
+
+    long countByCustomer(User customer);
+
     Optional<Shipment> findByTrackingNumberAndCustomer(
             String trackingNumber,
             User customer

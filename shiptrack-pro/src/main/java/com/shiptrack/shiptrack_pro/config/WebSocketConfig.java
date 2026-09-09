@@ -11,19 +11,6 @@ import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerCo
 public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     @Override
-<<<<<<< HEAD
-    public void configureMessageBroker(MessageBrokerRegistry config) {
-        config.enableSimpleBroker("/topic");
-        config.setApplicationDestinationPrefixes("/app");
-    }
-
-    @Override
-    public void registerStompEndpoints(StompEndpointRegistry registry) {
-        registry.addEndpoint("/api/ws/tracking")
-                .setAllowedOriginPatterns("*");
-    }
-}
-=======
     public void registerStompEndpoints(StompEndpointRegistry registry) {
         // Clients connect here (SockJS fallback for browsers/proxies that
         // block raw WebSocket). Frontend origin is the Next.js dev server.
@@ -44,4 +31,3 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
         registry.setApplicationDestinationPrefixes("/app");
     }
 }
->>>>>>> 53a57603dd48b71c537d4a798a57cf9b5c904611

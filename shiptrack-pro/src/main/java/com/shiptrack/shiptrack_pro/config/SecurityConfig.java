@@ -29,81 +29,77 @@ public class SecurityConfig {
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
+
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http)
             throws Exception {
-                http.csrf(csrf -> csrf.disable())
+        http.csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/api/auth/**").permitAll().requestMatchers(HttpMethod.POST, "/api/shipments")
-                .hasAnyRole("CUSTOMER", "BUSINESS_CLIENT")
-                .requestMatchers("/api/tracking/**", "/api/routes/**")
-                .hasAnyRole("LOGISTICS_OPERATOR", "ADMINISTRATOR")
-                .requestMatchers(HttpMethod.POST, "/api/pod/**")
-                .hasRole("LOGISTICS_OPERATOR")
-                .requestMatchers(HttpMethod.GET, "/api/pod/pending")
-                .hasAnyRole("SUPPORT_AGENT", "ADMINISTRATOR")
-                .requestMatchers(HttpMethod.GET, "/api/pod/*")
-                .hasAnyRole("SUPPORT_AGENT", "ADMINISTRATOR")
-                .requestMatchers(HttpMethod.PATCH, "/api/pod/*/verify")
-                .hasAnyRole("SUPPORT_AGENT", "ADMINISTRATOR")
-                .requestMatchers("/api/analytics/**", "/api/reports/**")
-                .hasAnyRole("BUSINESS_CLIENT", "ADMINISTRATOR")
+                        .requestMatchers("/api/auth/**").permitAll()
 
-                    // =========================
-                    // Driver Location
-                    // =========================
-                .requestMatchers("/api/route/**")
-                .hasAnyRole(
-                        "LOGISTICS_OPERATOR",
-                        "ADMINISTRATOR"
+                        .requestMatchers(HttpMethod.POST, "/api/shipments")
+                        .hasAnyRole("CUSTOMER", "BUSINESS_CLIENT")
+
+                        .requestMatchers("/api/tracking/**", "/api/routes/**")
+                        .hasAnyRole("LOGISTICS_OPERATOR", "ADMINISTRATOR")
+
+                        // =========================
+                        // Proof of Delivery
+                        // =========================
+                        .requestMatchers(HttpMethod.POST, "/api/pod/*")
+                        .hasRole("LOGISTICS_OPERATOR")
+
+                        .requestMatchers(HttpMethod.GET, "/api/pod/pending")
+                        .hasAnyRole("SUPPORT_AGENT", "ADMINISTRATOR")
+
+                        .requestMatchers(HttpMethod.GET, "/api/pod/*")
+                        .hasAnyRole("SUPPORT_AGENT", "ADMINISTRATOR")
+
+                        .requestMatchers(HttpMethod.PATCH, "/api/pod/*/verify")
+                        .hasAnyRole("SUPPORT_AGENT", "ADMINISTRATOR")
+
+                        // =========================
+                        // Driver Location
+                        // =========================
+                        .requestMatchers("/api/route/**")
+                        .hasAnyRole("LOGISTICS_OPERATOR", "ADMINISTRATOR")
+
+                        // =========================
+                        // ETA Prediction
+                        // =========================
+                        .requestMatchers("/api/eta/**")
+                        .authenticated()
+
+                        // =========================
+                        // Analytics & Reports
+                        // Per-role restriction (CUSTOMER / BUSINESS_CLIENT /
+                        // ADMINISTRATOR) is enforced with @PreAuthorize on
+                        // each individual endpoint in the controllers, since
+                        // each role hits a different path under these prefixes.
+                        // =========================
+                        .requestMatchers("/api/analytics/**", "/api/reports/**")
+                        .authenticated()
+
+                        // =========================
+                        // Admin
+                        // =========================
+                        .requestMatchers("/api/admin/**")
+                        .hasRole("ADMINISTRATOR")
+
+                        // =========================
+                        // Everything else
+                        // =========================
+                        .anyRequest()
+                        .authenticated()
                 )
-
-                    // =========================
-                    // ETA Prediction
-                    // =========================
-                .requestMatchers("/api/eta/**")
-                .authenticated()
-
-                    // =========================
-                    // Proof of Delivery
-                    // =========================
-                .requestMatchers(HttpMethod.POST, "/api/pod/**")
-                .hasRole("LOGISTICS_OPERATOR")
-
-                    // =========================
-                    // Analytics & Reports
-                    // =========================
-                .requestMatchers(
-                "/api/analytics/**",
-                "/api/reports/**"
-                )
-                .hasAnyRole(
-                        "BUSINESS_CLIENT",
-                        "ADMINISTRATOR"
-                )
-                    // =========================
-                    // Admin
-                    // =========================
-                .requestMatchers("/api/admin/**")
-                .hasRole("ADMINISTRATOR")
-
-                    // =========================
-                    // Everything else
-                    // =========================
-                .anyRequest()
-                .authenticated()
-        )
-
-        .httpBasic(basic -> basic.disable())
-
-        .formLogin(form -> form.disable())
-
-        .addFilterBefore(
-                jwtAuthFilter,
-                UsernamePasswordAuthenticationFilter.class
-        );
+                .httpBasic(basic -> basic.disable())
+                .formLogin(form -> form.disable())
+                .addFilterBefore(
+                        jwtAuthFilter,
+                        UsernamePasswordAuthenticationFilter.class
+                );
 
         return http.build();
-}
+    }
 }

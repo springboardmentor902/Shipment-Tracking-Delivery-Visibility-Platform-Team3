@@ -32,7 +32,12 @@ export default function LoginPage() {
 
       // Backend LoginResponse shape: { token, tokenType, user: { role, ... } }
       storeAuth(data.token, data.user.email, data.user.role);
-      router.push("/shipments/new");
+
+      const role = data.user.role as string;
+      if (role === "CUSTOMER") router.push("/dashboard/customer");
+      else if (role === "BUSINESS_CLIENT") router.push("/dashboard/business");
+      else if (role === "ADMINISTRATOR") router.push("/dashboard/admin");
+      else router.push("/shipments/new");
     } catch (err) {
       setError("Could not reach the backend. Is it running on port 8080?");
     } finally {
