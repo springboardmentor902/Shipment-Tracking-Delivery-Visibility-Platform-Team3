@@ -64,4 +64,18 @@ export const shipmentService = {
   // DELETE with a body needs the `data` key in axios.
   cancel: (id, reason) =>
     api.delete(`/shipments/${id}`, { data: { reason } }).then((res) => res.data),
+
+  downloadPDF: () =>
+  api
+    .get('/reports/shipments?format=pdf', {
+      responseType: 'blob',
+    })
+    .then((res) => res.data),
+
+downloadExcel: () =>
+  api
+    .get('/reports/shipments?format=excel', {
+      responseType: 'blob',
+    })
+    .then((res) => res.data),
 }

@@ -34,6 +34,46 @@ export default function ShipmentList() {
 
   const shipments = data?.content || []
 
+  const downloadPDF = async () => {
+  try {
+    const blob = await shipmentService.downloadPDF()
+
+    const url = window.URL.createObjectURL(blob)
+    const link = document.createElement('a')
+
+    link.href = url
+    link.download = 'shipment-report.pdf'
+
+    document.body.appendChild(link)
+    link.click()
+
+    link.remove()
+    window.URL.revokeObjectURL(url)
+  } catch (err) {
+    setError(extractErrorMessage(err, 'Could not download PDF report.'))
+  }
+}
+
+const downloadExcel = async () => {
+  try {
+    const blob = await shipmentService.downloadExcel()
+
+    const url = window.URL.createObjectURL(blob)
+    const link = document.createElement('a')
+
+    link.href = url
+    link.download = 'shipment-report.xlsx'
+
+    document.body.appendChild(link)
+    link.click()
+
+    link.remove()
+    window.URL.revokeObjectURL(url)
+  } catch (err) {
+    setError(extractErrorMessage(err, 'Could not download Excel report.'))
+  }
+}
+
   return (
     <AppLayout>
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
@@ -47,6 +87,18 @@ export default function ShipmentList() {
         </div>
 
         <div className="flex items-center gap-3">
+          
+            
+            <div className="download-buttons flex p-1 gap-2 bo">
+              <button onClick={downloadPDF} className='border border-gray-300 px-[10px] py-[5px] bg-white rounded-md'>
+                Download PDF
+              </button>
+
+              <button onClick={downloadExcel} className='border border-gray-300 px-[10px] py-[5px] bg-white rounded-md'>
+                Download Excel
+              </button>
+            </div>
+
           <select
             value={statusFilter}
             onChange={(event) => {
@@ -63,6 +115,7 @@ export default function ShipmentList() {
               </option>
             ))}
           </select>
+
 
           {canCreate && (
             <Link
