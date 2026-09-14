@@ -13,7 +13,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
-
+import java.util.Map;
 @RestController
 @RequestMapping("/api/users")
 @RequiredArgsConstructor
@@ -23,6 +23,7 @@ public class UserController {
 
     @GetMapping("/{id}/profile")
     public ResponseEntity<UserResponse> getUserProfile(
+    		
             @PathVariable Long id,
             Authentication authentication) {
 
@@ -37,6 +38,26 @@ public class UserController {
         }
 
         return ResponseEntity.ok(user);
+    }
+    @PutMapping("/{id}/profile")
+    public ResponseEntity<UserResponse> updateProfile(
+            @PathVariable Long id,
+            @RequestBody Map<String, String> request,
+            Authentication authentication) {
+
+        UserResponse existingUser = userService.getUserProfile(id);
+
+        if (!existingUser.getEmail().equals(authentication.getName())) {
+            return ResponseEntity.status(403).build();
+        }
+
+        String fullName = request.get("fullName");
+        String phone = request.get("phone");
+
+        UserResponse updatedUser =
+                userService.updateProfile(id, fullName, phone);
+
+        return ResponseEntity.ok(updatedUser);
     }
     @PatchMapping("/{id}/status")
     @PreAuthorize("hasAnyRole('LOGISTICS_OPERATOR', 'ADMINISTRATOR')")

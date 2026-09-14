@@ -14,26 +14,33 @@ public class GpsLocationController {
 
     private final GpsLocationService gpsLocationService;
 
-    public GpsLocationController(GpsLocationService gpsLocationService) {
+    public GpsLocationController(
+            GpsLocationService gpsLocationService) {
+
         this.gpsLocationService = gpsLocationService;
     }
 
     @PostMapping("/location")
     public ResponseEntity<GpsLocation> saveLocation(
-            @RequestParam Long vehicleId,
+            @RequestParam Long shipmentId,
             @RequestParam double latitude,
             @RequestParam double longitude) {
 
         return ResponseEntity.ok(
                 gpsLocationService.saveLocation(
-                        vehicleId, latitude, longitude));
+                        shipmentId,
+                        latitude,
+                        longitude
+                )
+        );
     }
 
-    @GetMapping("/location/{vehicleId}")
-    public ResponseEntity<List<GpsLocation>> getVehicleLocations(
-            @PathVariable Long vehicleId) {
+    @GetMapping("/location/{shipmentId}")
+    public ResponseEntity<List<GpsLocation>> getShipmentLocations(
+            @PathVariable Long shipmentId) {
 
         return ResponseEntity.ok(
-                gpsLocationService.getVehicleLocations(vehicleId));
+                gpsLocationService.getVehicleLocations(shipmentId)
+        );
     }
 }

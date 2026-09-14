@@ -14,22 +14,19 @@ import java.util.List;
 @RequiredArgsConstructor
 public class ETAScheduledService {
 
-    private final ETAPredictionService etaPredictionService;
-    private final ShipmentRepository shipmentRepository;
+	private final ETAPredictionService etaPredictionService;
+	private final ShipmentRepository shipmentRepository;
 
-    @Scheduled(fixedRate = 900000)
-    public void recalculateETAs() {
+	@Scheduled(fixedRate = 900000)
+	public void recalculateETAs() {
 
-        // Find all in-progress shipments
-        List<Shipment> shipments =
-                shipmentRepository.findByStatus("IN_PROGRESS");
+		// Find all in-progress shipments
+		List<Shipment> shipments = shipmentRepository.findByStatus("IN_PROGRESS");
 
-        // Recalculate ETA for each shipment
-        for (Shipment shipment : shipments) {
+		// Recalculate ETA for each shipment
+		for (Shipment shipment : shipments) {
 
-            etaPredictionService.recalculateETA(
-                    shipment.getId()
-            );
-        }
-    }
+			etaPredictionService.recalculateETA(shipment.getId());
+		}
+	}
 }

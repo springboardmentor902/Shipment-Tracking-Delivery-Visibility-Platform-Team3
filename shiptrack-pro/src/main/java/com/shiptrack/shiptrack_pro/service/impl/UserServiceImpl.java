@@ -233,10 +233,40 @@ public class UserServiceImpl implements UserService {
                 .createdAt(user.getCreatedAt())
                 .build();
     }
-
     @Override
     public UserResponse getUserProfile(Long userId) {
-        // TODO Auto-generated method stub
-        return null;
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        return UserResponse.builder()
+                .id(user.getId())
+                .fullName(user.getFullName())
+                .email(user.getEmail())
+                .phone(user.getPhone())
+                .role(user.getRole())
+                .status(user.getStatus())
+                .createdAt(user.getCreatedAt())
+                .build();
     }
+
+    @Override
+    public UserResponse updateProfile(
+            Long userId,
+            String fullName,
+            String phone) {
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "User not found with id: " + userId));
+
+        user.setFullName(fullName);
+        user.setPhone(phone);
+
+        User updatedUser = userRepository.save(user);
+
+        return mapToResponse(updatedUser);
+    }
+
+   
 }

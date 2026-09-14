@@ -27,16 +27,22 @@ public class Shipment {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "customer_id", nullable = false)
     private User customer;
-
+ // LOGISTICS OPERATOR assigned to handle this shipment.
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "operator_id")
+    private User operator;
     @Column(name = "sender_name", nullable = false)
     private String senderName;
+    @Column(name = "sender_phone", nullable = false)
+    private String senderPhone;
 
     @Column(name = "sender_address", nullable = false)
     private String senderAddress;
 
     @Column(name = "receiver_name", nullable = false)
     private String receiverName;
-
+    @Column(name = "receiver_email", nullable = false)
+    private String receiverEmail;
     @Column(name = "receiver_address", nullable = false)
     private String receiverAddress;
 

@@ -25,9 +25,9 @@ public class AnalyticsServiceImpl implements AnalyticsService {
     private final UserRepository userRepository;
     private final RouteRepository routeRepository;
 
-    // ==========================================
+    // =========================================================
     // CUSTOMER ANALYTICS
-    // ==========================================
+    // =========================================================
 
     @Override
     public AnalyticsResponse getCustomerAnalytics(User user) {
@@ -38,15 +38,15 @@ public class AnalyticsServiceImpl implements AnalyticsService {
         return buildShipmentAnalytics(shipments, user);
     }
 
-    // ==========================================
+    // =========================================================
     // BUSINESS CLIENT ANALYTICS
-    // ==========================================
+    // =========================================================
 
     @Override
     public AnalyticsResponse getBusinessAnalytics(User user) {
 
         /*
-         * In your current project, Shipment.customer represents
+         * In the current project, Shipment.customer represents
          * the CUSTOMER or BUSINESS_CLIENT who created the shipment.
          *
          * Therefore, this correctly restricts the data to the
@@ -58,9 +58,9 @@ public class AnalyticsServiceImpl implements AnalyticsService {
         return buildShipmentAnalytics(shipments, user);
     }
 
-    // ==========================================
+    // =========================================================
     // ADMIN ANALYTICS
-    // ==========================================
+    // =========================================================
 
     @Override
     public AnalyticsResponse getAdminAnalytics() {
@@ -69,12 +69,51 @@ public class AnalyticsServiceImpl implements AnalyticsService {
         List<Shipment> shipments =
                 shipmentRepository.findAll();
 
-        // ------------------------------------------
-        // User Summary
-        // ------------------------------------------
-
+        // Get all users
         List<User> users =
                 userRepository.findAll();
+
+        // -----------------------------------------------------
+        // Active Users
+        // -----------------------------------------------------
+
+        long activeUsers =
+                users.stream()
+                        .filter(u ->
+                                u.getStatus() != null
+                                        && u.getStatus()
+                                        .equalsIgnoreCase("ACTIVE"))
+                        .count();
+
+        // -----------------------------------------------------
+        // Active Routes
+        // -----------------------------------------------------
+
+        long activeRoutes = shipments.stream()
+                .flatMap(shipment ->
+                        routeRepository
+                                .findAllByShipmentIdOrderByCreatedAtDesc(
+                                        shipment.getId()
+                                )
+                                .stream()
+                )
+                .filter(route ->
+                        Boolean.TRUE.equals(route.getIsCurrent())
+                                && route.getStatus() != null
+                                && !route.getStatus().equalsIgnoreCase("COMPLETED")
+                                && !route.getStatus().equalsIgnoreCase("CANCELLED")
+                )
+                .count();
+
+        // -----------------------------------------------------
+        // Available Reports
+        // -----------------------------------------------------
+
+        long totalReports = 4;
+
+        // -----------------------------------------------------
+        // User Summary
+        // -----------------------------------------------------
 
         long totalUsers = users.size();
 
@@ -82,45 +121,40 @@ public class AnalyticsServiceImpl implements AnalyticsService {
                 users.stream()
                         .filter(u ->
                                 "CUSTOMER".equalsIgnoreCase(
-                                        u.getRole()
-                                ))
+                                        u.getRole()))
                         .count();
 
         long totalBusinessClients =
                 users.stream()
                         .filter(u ->
                                 "BUSINESS_CLIENT".equalsIgnoreCase(
-                                        u.getRole()
-                                ))
+                                        u.getRole()))
                         .count();
 
         long totalOperators =
                 users.stream()
                         .filter(u ->
                                 "LOGISTICS_OPERATOR".equalsIgnoreCase(
-                                        u.getRole()
-                                ))
+                                        u.getRole()))
                         .count();
 
         long totalDrivers =
                 users.stream()
                         .filter(u ->
                                 "DRIVER".equalsIgnoreCase(
-                                        u.getRole()
-                                ))
+                                        u.getRole()))
                         .count();
 
         long totalAdministrators =
                 users.stream()
                         .filter(u ->
                                 "ADMINISTRATOR".equalsIgnoreCase(
-                                        u.getRole()
-                                ))
+                                        u.getRole()))
                         .count();
 
-        // ------------------------------------------
+        // -----------------------------------------------------
         // Build platform shipment analytics
-        // ------------------------------------------
+        // -----------------------------------------------------
 
         AnalyticsResponse response =
                 buildShipmentAnalytics(
@@ -128,9 +162,9 @@ public class AnalyticsServiceImpl implements AnalyticsService {
                         null
                 );
 
-        // ------------------------------------------
+        // -----------------------------------------------------
         // Admin User Summary
-        // ------------------------------------------
+        // -----------------------------------------------------
 
         response.setTotalUsers(totalUsers);
         response.setTotalCustomers(totalCustomers);
@@ -139,12 +173,19 @@ public class AnalyticsServiceImpl implements AnalyticsService {
         response.setTotalDrivers(totalDrivers);
         response.setTotalAdministrators(totalAdministrators);
 
+        // -----------------------------------------------------
+        // System Monitoring
+        // -----------------------------------------------------
+
+        response.setActiveUsers(activeUsers);
+        response.setActiveRoutes(activeRoutes);
+        response.setTotalReports(totalReports);
+
         return response;
     }
-
-    // ==========================================
+    // =========================================================
     // BUILD SHIPMENT ANALYTICS
-    // ==========================================
+    // =========================================================
 
     private AnalyticsResponse buildShipmentAnalytics(
             List<Shipment> shipments,
@@ -182,23 +223,23 @@ public class AnalyticsServiceImpl implements AnalyticsService {
                         "CANCELLED"
                 );
 
-        // ------------------------------------------
+        // -----------------------------------------------------
         // Status Breakdown
-        // ------------------------------------------
+        // -----------------------------------------------------
 
         Map<String, Long> statusBreakdown =
                 buildStatusBreakdown(shipments);
 
-        // ------------------------------------------
+        // -----------------------------------------------------
         // Route Analytics
-        // ------------------------------------------
+        // -----------------------------------------------------
 
         RouteAnalytics routeAnalytics =
                 buildRouteAnalytics(shipments);
 
-        // ------------------------------------------
+        // -----------------------------------------------------
         // Delivery Rate
-        // ------------------------------------------
+        // -----------------------------------------------------
 
         double deliveryRate = 0.0;
 
@@ -208,48 +249,54 @@ public class AnalyticsServiceImpl implements AnalyticsService {
                             totalShipments) * 100.0;
         }
 
-        // ------------------------------------------
+        // -----------------------------------------------------
         // Delay Rate
-        // ------------------------------------------
-
+        // -----------------------------------------------------
         double delayRate = 0.0;
 
-        if (totalShipments > 0) {
+        if (routeAnalytics.totalRoutes > 0) {
             delayRate =
                     ((double) routeAnalytics.delayedRoutes /
-                            totalShipments) * 100.0;
+                            routeAnalytics.totalRoutes) * 100.0;
         }
+       
 
-        // ------------------------------------------
+        // -----------------------------------------------------
         // Build Response
-        // ------------------------------------------
+        // -----------------------------------------------------
 
         AnalyticsResponse.AnalyticsResponseBuilder builder =
                 AnalyticsResponse.builder()
-
                         .totalShipments(totalShipments)
-
                         .activeShipments(activeShipments)
-
                         .deliveredShipments(deliveredShipments)
-
                         .pendingShipments(pendingShipments)
+                        .inProgressShipments(inProgressShipments)
+                        .cancelledShipments(cancelledShipments)
+                        .statusBreakdown(statusBreakdown)
 
-                        .inProgressShipments(
-                                inProgressShipments
-                        )
+                     // Delivery analytics
+                        .deliveryRate(deliveryRate)
+                        .delayRate(delayRate)
+                        .delayedShipments(routeAnalytics.delayedRoutes)
+                        .onTimeShipments(routeAnalytics.onTimeRoutes)
 
-                        .cancelledShipments(
-                                cancelledShipments
-                        )
+                        // Route analytics
+                        .totalRoutes(routeAnalytics.totalRoutes)
+                        .totalDistanceKm(routeAnalytics.totalDistance)
+                        .averageDistanceKm(routeAnalytics.averageDistance)
+                        .averageEstimatedTimeMinutes(
+                                routeAnalytics.averageEstimatedTime)
+                        .averageActualTimeMinutes(
+                                routeAnalytics.averageActualTime)
+                        .onTimeRoutes(routeAnalytics.onTimeRoutes)
+                        .delayedRoutes(routeAnalytics.delayedRoutes)
+                        .trafficConditionBreakdown(
+                                routeAnalytics.trafficBreakdown);
 
-                        .statusBreakdown(
-                                statusBreakdown
-                        );
-
-        // ------------------------------------------
+        // -----------------------------------------------------
         // Add User Information
-        // ------------------------------------------
+        // -----------------------------------------------------
 
         if (user != null) {
 
@@ -262,23 +309,20 @@ public class AnalyticsServiceImpl implements AnalyticsService {
         /*
          * IMPORTANT:
          *
-         * The AnalyticsResponse you currently have does NOT
-         * contain fields for route distance, delay rate,
-         * delivery rate, etc.
+         * The current AnalyticsResponse DTO does not contain
+         * fields for route distance, delay rate, delivery rate,
+         * etc.
          *
-         * Therefore we are NOT calling setters for fields
-         * that don't exist in your current DTO.
-         *
-         * We calculate the values internally here so the
-         * code is ready for the next DTO/report stage.
+         * Therefore we calculate those values internally,
+         * but do not call setters for fields that do not exist.
          */
 
         return builder.build();
     }
 
-    // ==========================================
+    // =========================================================
     // ROUTE ANALYTICS
-    // ==========================================
+    // =========================================================
 
     private RouteAnalytics buildRouteAnalytics(
             List<Shipment> shipments) {
@@ -306,22 +350,37 @@ public class AnalyticsServiceImpl implements AnalyticsService {
 
             try {
 
-                Route route =
-                        routeRepository
-                                .findByShipmentId(
-                                        shipment.getId()
-                                )
-                                .orElse(null);
+                // -------------------------------------------------
+                // Get all routes for this shipment
+                // -------------------------------------------------
 
-                if (route == null) {
+                List<Route> routes =
+                        routeRepository
+                                .findAllByShipmentIdOrderByCreatedAtDesc(
+                                        shipment.getId()
+                                );
+
+                if (routes.isEmpty()) {
                     continue;
                 }
 
+                // Prefer current route.
+                // Otherwise use the newest route.
+                Route route =
+                        routes.stream()
+                                .filter(r ->
+                                        Boolean.TRUE.equals(
+                                                r.getIsCurrent()
+                                        )
+                                )
+                                .findFirst()
+                                .orElse(routes.get(0));
+
                 totalRoutes++;
 
-                // ----------------------------------
+                // -------------------------------------------------
                 // Distance
-                // ----------------------------------
+                // -------------------------------------------------
 
                 if (route.getDistanceKm() != null) {
 
@@ -329,12 +388,11 @@ public class AnalyticsServiceImpl implements AnalyticsService {
                             route.getDistanceKm();
                 }
 
-                // ----------------------------------
+                // -------------------------------------------------
                 // Estimated Time
-                // ----------------------------------
+                // -------------------------------------------------
 
-                if (route.getEstimatedTimeMinutes()
-                        != null) {
+                if (route.getEstimatedTimeMinutes() != null) {
 
                     totalEstimatedTime +=
                             route.getEstimatedTimeMinutes();
@@ -342,12 +400,11 @@ public class AnalyticsServiceImpl implements AnalyticsService {
                     estimatedTimeCount++;
                 }
 
-                // ----------------------------------
+                // -------------------------------------------------
                 // Actual Time
-                // ----------------------------------
+                // -------------------------------------------------
 
-                if (route.getActualTimeMinutes()
-                        != null) {
+                if (route.getActualTimeMinutes() != null) {
 
                     totalActualTime +=
                             route.getActualTimeMinutes();
@@ -355,9 +412,9 @@ public class AnalyticsServiceImpl implements AnalyticsService {
                     actualTimeCount++;
                 }
 
-                // ----------------------------------
+                // -------------------------------------------------
                 // Delay Analysis
-                // ----------------------------------
+                // -------------------------------------------------
 
                 if (route.getEstimatedTimeMinutes() != null
                         && route.getActualTimeMinutes() != null) {
@@ -373,9 +430,9 @@ public class AnalyticsServiceImpl implements AnalyticsService {
                     }
                 }
 
-                // ----------------------------------
+                // -------------------------------------------------
                 // Traffic Condition
-                // ----------------------------------
+                // -------------------------------------------------
 
                 String traffic =
                         route.getTrafficCondition();
@@ -404,6 +461,10 @@ public class AnalyticsServiceImpl implements AnalyticsService {
             }
         }
 
+        // ---------------------------------------------------------
+        // Average Estimated Time
+        // ---------------------------------------------------------
+
         double averageEstimatedTime = 0.0;
 
         if (estimatedTimeCount > 0) {
@@ -413,6 +474,10 @@ public class AnalyticsServiceImpl implements AnalyticsService {
                             estimatedTimeCount;
         }
 
+        // ---------------------------------------------------------
+        // Average Actual Time
+        // ---------------------------------------------------------
+
         double averageActualTime = 0.0;
 
         if (actualTimeCount > 0) {
@@ -421,6 +486,10 @@ public class AnalyticsServiceImpl implements AnalyticsService {
                     totalActualTime /
                             actualTimeCount;
         }
+
+        // ---------------------------------------------------------
+        // Average Distance
+        // ---------------------------------------------------------
 
         double averageDistance = 0.0;
 
@@ -443,9 +512,9 @@ public class AnalyticsServiceImpl implements AnalyticsService {
         );
     }
 
-    // ==========================================
+    // =========================================================
     // ACTIVE SHIPMENT
-    // ==========================================
+    // =========================================================
 
     private boolean isActive(
             Shipment shipment) {
@@ -461,9 +530,9 @@ public class AnalyticsServiceImpl implements AnalyticsService {
                 && !status.equalsIgnoreCase("CANCELLED");
     }
 
-    // ==========================================
+    // =========================================================
     // COUNT BY STATUS
-    // ==========================================
+    // =========================================================
 
     private long countByStatus(
             List<Shipment> shipments,
@@ -478,9 +547,9 @@ public class AnalyticsServiceImpl implements AnalyticsService {
                 .count();
     }
 
-    // ==========================================
+    // =========================================================
     // STATUS BREAKDOWN
-    // ==========================================
+    // =========================================================
 
     private Map<String, Long> buildStatusBreakdown(
             List<Shipment> shipments) {
@@ -511,9 +580,9 @@ public class AnalyticsServiceImpl implements AnalyticsService {
         return breakdown;
     }
 
-    // ==========================================
+    // =========================================================
     // INTERNAL ROUTE ANALYTICS CLASS
-    // ==========================================
+    // =========================================================
 
     private static class RouteAnalytics {
 
@@ -531,8 +600,7 @@ public class AnalyticsServiceImpl implements AnalyticsService {
 
         private final int delayedRoutes;
 
-        private final Map<String, Long>
-                trafficBreakdown;
+        private final Map<String, Long> trafficBreakdown;
 
         public RouteAnalytics(
                 int totalRoutes,
