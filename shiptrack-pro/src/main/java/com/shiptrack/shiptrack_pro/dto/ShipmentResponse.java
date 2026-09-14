@@ -8,17 +8,32 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ShipmentResponse {
+	private String senderPhone;
+	private String receiverEmail;
     private Long id;
     private String trackingNumber;
+
     private Long customerId;
     private String customerEmail;
+
     private String senderName;
     private String senderAddress;
+
     private String receiverName;
     private String receiverAddress;
     private String receiverPhone;
+
     private String packageDescription;
     private Double weightKg;
+
     private String status;
+
+    private String createdByName;
+    private String createdByRole;
+
+    private String assignedOperatorName;
+    private Long assignedOperatorId;
+
     private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
 }

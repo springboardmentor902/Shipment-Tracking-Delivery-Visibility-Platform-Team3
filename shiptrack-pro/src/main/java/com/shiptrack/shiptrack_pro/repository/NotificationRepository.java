@@ -26,4 +26,16 @@ public interface NotificationRepository
             Shipment shipment,
             String type
     );
+
+    // Count unread notifications for a user
+    long countByUserAndStatus(
+            User user,
+            String status
+    );
+
+    // Get all unread notifications for a user
+    List<Notification> findByUserAndStatus(
+            User user,
+            String status
+    );
 }

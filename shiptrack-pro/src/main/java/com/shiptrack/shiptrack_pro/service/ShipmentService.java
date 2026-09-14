@@ -11,7 +11,7 @@ public interface ShipmentService {
             ShipmentRequest request,
             String customerEmail
     );
-
+    ShipmentResponse updateShipmentStatus(String trackingNumber, String status);
     List<ShipmentResponse> getCustomerShipments(
             String customerEmail
     );
@@ -20,4 +20,16 @@ public interface ShipmentService {
             String trackingNumber,
             String customerEmail
     );
+
+    // Admin shipment access
+    List<ShipmentResponse> getAllShipments();
+
+    ShipmentResponse getShipmentByTrackingNumber(
+            String trackingNumber
+    );
+    ShipmentResponse assignOperator(
+            String trackingNumber,
+            Long operatorId
+    );
+    
 }

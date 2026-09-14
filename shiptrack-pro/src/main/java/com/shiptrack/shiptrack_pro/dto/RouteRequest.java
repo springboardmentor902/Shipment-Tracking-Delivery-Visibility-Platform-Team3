@@ -22,4 +22,5 @@ public class RouteRequest {
     private String trafficCondition;
 
     private Long driverId;
+    
 }

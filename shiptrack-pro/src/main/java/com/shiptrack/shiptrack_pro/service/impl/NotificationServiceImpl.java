@@ -20,7 +20,31 @@ import java.util.List;
 public class NotificationServiceImpl implements NotificationService {
 
     private final NotificationRepository notificationRepository;
+    @Override
+    public long getUnreadCount(User user) {
 
+        return notificationRepository
+                .countByUserAndStatus(user, "UNREAD");
+    }
+
+    @Override
+    public int markAllAsRead(User user) {
+
+        List<Notification> notifications =
+                notificationRepository
+                        .findByUserAndStatus(user, "UNREAD");
+
+        LocalDateTime now = LocalDateTime.now();
+
+        for (Notification notification : notifications) {
+            notification.setStatus("READ");
+            notification.setReadAt(now);
+        }
+
+        notificationRepository.saveAll(notifications);
+
+        return notifications.size();
+    }
     // ==========================================
     // Send Notification
     // ==========================================

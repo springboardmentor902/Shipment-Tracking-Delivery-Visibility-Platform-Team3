@@ -13,7 +13,9 @@ public class GpsLocationService {
 
     private final GpsLocationRepository gpsLocationRepository;
 
-    public GpsLocationService(GpsLocationRepository gpsLocationRepository) {
+    public GpsLocationService(
+            GpsLocationRepository gpsLocationRepository) {
+
         this.gpsLocationRepository = gpsLocationRepository;
     }
 
@@ -32,8 +34,12 @@ public class GpsLocationService {
         return gpsLocationRepository.save(location);
     }
 
-    public List<GpsLocation> getVehicleLocations(Long vehicleId) {
+    public List<GpsLocation> getVehicleLocations(
+            Long vehicleId) {
+
         return gpsLocationRepository
-                .findByVehicleIdOrderByRecordedAtDesc(vehicleId);
+                .findByVehicleIdOrderByRecordedAtDesc(
+                        vehicleId
+                );
     }
 }
