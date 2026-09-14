@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useNavigate, useParams } from "react-router-dom";
 
 type Shipment = {
   id: number;
@@ -21,7 +21,7 @@ type Shipment = {
 
 export default function ShipmentDetailsPage() {
   const params = useParams();
-  const router = useRouter();
+  const navigate = useNavigate();
 
   const trackingNumber = params.trackingNumber as string;
 
@@ -33,7 +33,7 @@ export default function ShipmentDetailsPage() {
     const token = localStorage.getItem("shiptrack_token");
 
     if (!token) {
-      router.push("/login");
+      navigate("/login");
       return;
     }
 
@@ -64,7 +64,7 @@ export default function ShipmentDetailsPage() {
     };
 
     fetchShipment();
-  }, [trackingNumber, router]);
+  }, [trackingNumber, navigate]);
 
   if (loading) {
     return (
@@ -87,7 +87,7 @@ export default function ShipmentDetailsPage() {
           </p>
 
           <button
-            onClick={() => router.push("/shipments")}
+            onClick={() => navigate("/shipments")}
             className="mt-6 rounded-md bg-zinc-900 px-5 py-2 text-white"
           >
             Back to My Shipments
@@ -102,7 +102,7 @@ export default function ShipmentDetailsPage() {
       <div className="mx-auto max-w-3xl">
 
         <button
-          onClick={() => router.push("/shipments")}
+          onClick={() => navigate("/shipments")}
           className="mb-6 text-sm text-zinc-600 hover:text-zinc-900"
         >
           ← Back to My Shipments
