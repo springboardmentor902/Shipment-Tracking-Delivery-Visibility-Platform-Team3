@@ -1,17 +1,16 @@
 import api from './api'
 
-/** Delivery forecast and delay-risk APIs. */
 export const etaService = {
-  /** Stored forecast for one shipment; calculated on demand if missing. */
-  getForShipment: (shipmentId) => api.get(`/eta/shipments/${shipmentId}`).then((res) => res.data),
+  getForShipment: (shipmentId) =>
+    api.get(`/eta/${shipmentId}`).then((res) => res.data),
 
-  /** Operator, support and admin only. */
   recalculate: (shipmentId) =>
-    api.post(`/eta/shipments/${shipmentId}/recalculate`).then((res) => res.data),
+    api.post(`/eta/${shipmentId}/predict`).then((res) => res.data),
 
-  /** Shipments likely to miss their promise, scoped to what the caller may see. */
   listAtRisk: (minScore = 50) =>
-    api.get('/eta/at-risk', { params: { minScore } }).then((res) => res.data),
+    api.get('/eta/at-risk', {
+      params: { minScore },
+    }).then((res) => res.data),
 }
 
 export const RISK_STYLES = {

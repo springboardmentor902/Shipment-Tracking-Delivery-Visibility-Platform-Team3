@@ -1,67 +1,175 @@
-import api from './api'
+import api from "./api";
+
+// --------------------------------------------------
+// Shipment statuses
+// --------------------------------------------------
 
 export const SHIPMENT_STATUSES = [
-  'CREATED',
-  'PICKED_UP',
-  'IN_TRANSIT',
-  'OUT_FOR_DELIVERY',
-  'DELIVERED',
-  'FAILED_DELIVERY',
-  'CANCELLED',
-]
+  "CREATED",
+  "PICKED_UP",
+  "IN_TRANSIT",
+  "OUT_FOR_DELIVERY",
+  "DELIVERED",
+  "FAILED_DELIVERY",
+  "CANCELLED",
+];
 
-// Keep the UI aligned with the backend's closed shipment lifecycle.
+// --------------------------------------------------
+// Allowed status transitions
+// --------------------------------------------------
+
 export const ALLOWED_STATUS_TRANSITIONS = {
-  CREATED: ['PICKED_UP', 'CANCELLED'],
-  PICKED_UP: ['IN_TRANSIT', 'FAILED_DELIVERY', 'CANCELLED'],
-  IN_TRANSIT: ['OUT_FOR_DELIVERY', 'FAILED_DELIVERY', 'CANCELLED'],
-  OUT_FOR_DELIVERY: ['DELIVERED', 'FAILED_DELIVERY'],
-  FAILED_DELIVERY: ['OUT_FOR_DELIVERY', 'CANCELLED'],
-  DELIVERED: [],
-  CANCELLED: [],
-}
+  CREATED: ["PICKED_UP", "CANCELLED"],
 
-// Customers book their own shipments too (Milestone 1).
-export const CAN_CREATE_ROLES = ['CUSTOMER', 'BUSINESS_CLIENT', 'LOGISTICS_OPERATOR']
-export const CAN_CHANGE_STATUS_ROLES = ['LOGISTICS_OPERATOR', 'ADMINISTRATOR']
+  PICKED_UP: [
+    "IN_TRANSIT",
+    "FAILED_DELIVERY",
+    "CANCELLED",
+  ],
+
+  IN_TRANSIT: [
+    "OUT_FOR_DELIVERY",
+    "FAILED_DELIVERY",
+    "CANCELLED",
+  ],
+
+  OUT_FOR_DELIVERY: [
+    "DELIVERED",
+    "FAILED_DELIVERY",
+  ],
+
+  FAILED_DELIVERY: [
+    "OUT_FOR_DELIVERY",
+    "CANCELLED",
+  ],
+
+  DELIVERED: [],
+
+  CANCELLED: [],
+};
+
+// --------------------------------------------------
+// Role permissions
+// --------------------------------------------------
+
+export const CAN_CREATE_ROLES = [
+  "CUSTOMER",
+  "BUSINESS_CLIENT",
+  "LOGISTICS_OPERATOR",
+];
+
+export const CAN_CHANGE_STATUS_ROLES = [
+  "LOGISTICS_OPERATOR",
+  "ADMINISTRATOR",
+];
+
+// --------------------------------------------------
+// Shipment service
+// --------------------------------------------------
 
 export const shipmentService = {
-  /** Spring returns a Page object: { content, totalPages, totalElements, number, size } */
-  list: ({ status, page = 0, size = 10 } = {}) =>
+  // Get shipments with pagination and optional status
+  list: ({
+    status,
+    page = 0,
+    size = 10,
+  } = {}) =>
     api
-      .get('/shipments', { params: { status: status || undefined, page, size } })
-      .then((res) => res.data),
+      .get("/shipments", {
+        params: {
+          status: status || undefined,
+          page,
+          size,
+        },
+      })
+      .then((response) => response.data),
 
-  getById: (id) => api.get(`/shipments/${id}`).then((res) => res.data),
+  // Get shipment by database ID
+  getById: (id) =>
+    api
+      .get(`/shipments/${id}`)
+      .then((response) => response.data),
 
+  // Get shipment by tracking number
   getByTracking: (trackingNumber) =>
-    api.get(`/tracking/${encodeURIComponent(trackingNumber)}`).then((res) => res.data),
+    api
+      .get(
+        `/shipments/${encodeURIComponent(trackingNumber)}`
+      )
+      .then((response) => response.data),
 
-  create: (payload) => api.post('/shipments', payload).then((res) => res.data),
+  // Create shipment
+  create: (payload) =>
+    api
+      .post("/shipments", payload)
+      .then((response) => response.data),
 
-  update: (id, payload) => api.put(`/shipments/${id}`, payload).then((res) => res.data),
+  // Update shipment details
+  update: (id, payload) =>
+    api
+      .put(`/shipments/${id}`, payload)
+      .then((response) => response.data),
 
-  updateStatus: (id, status, note) =>
-    api.patch(`/shipments/${id}/status`, { status, notes: note }).then((res) => res.data),
+  // Update shipment status
+  updateStatus: (id, status, note = "") =>
+    api
+      .patch(`/shipments/${id}/status`, {
+        status,
+        notes: note,
+      })
+      .then((response) => response.data),
 
-  getTrackingEvents: (id) => api.get(`/shipments/${id}/tracking`).then((res) => res.data),
+  // Get tracking timeline
+  getTrackingEvents: (shipmentId) =>
+    api
+      .get(`/shipments/${shipmentId}/tracking`)
+      .then((response) => response.data),
 
-  updateLocation: (payload) => api.post('/tracking/location', payload).then((res) => res.data),
+  // Add a checkpoint to shipment tracking timeline
+  addTrackingEvent: (shipmentId, payload) =>
+    api
+      .post(`/shipments/${shipmentId}/tracking`, payload)
+      .then((response) => response.data),
 
-  /** Add a checkpoint to the timeline by hand, e.g. "reached Vijayawada hub". */
-  addTrackingEvent: (payload) => api.post('/tracking/events', payload).then((res) => res.data),
+  // Get routes belonging to a shipment
+  getRoutes: (shipmentId) =>
+    api
+      .get(`/shipments/${shipmentId}/routes`)
+      .then((response) => response.data),
 
-  /** All route legs of a shipment, in travel order. See also routeService. */
-  getRoutes: (id) => api.get(`/routes/${id}`).then((res) => res.data),
+  // Assign operator to shipment
+  assignOperator: (shipmentId, operatorId) =>
+    api
+      .patch(
+        `/shipments/${shipmentId}/operator`,
+        null,
+        {
+          params: {
+            operatorId,
+          },
+        }
+      )
+      .then((response) => response.data),
 
-  assignOperator: (id, operatorId) =>
-    api.patch(`/shipments/${id}/operator`, { operatorId }).then((res) => res.data),
+  // Get active shipments for monitoring
+  getActiveMonitoring: () =>
+    api
+      .get("/monitoring/active")
+      .then((response) => response.data),
 
-  getActiveMonitoring: () => api.get('/monitoring/active').then((res) => res.data),
+  // Get admin users
+  getAdminUsers: () =>
+    api
+      .get("/admin/users")
+      .then((response) => response.data),
 
-  getAdminUsers: () => api.get('/admin/users').then((res) => res.data),
-
-  // DELETE with a body needs the `data` key in axios.
-  cancel: (id, reason) =>
-    api.delete(`/shipments/${id}`, { data: { reason } }).then((res) => res.data),
-}
+  // Cancel shipment
+  cancel: (shipmentId, reason = "") =>
+    api
+      .delete(`/shipments/${shipmentId}`, {
+        data: {
+          reason,
+        },
+      })
+      .then((response) => response.data),
+};

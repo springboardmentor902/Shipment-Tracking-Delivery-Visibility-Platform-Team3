@@ -159,7 +159,7 @@ export default function Tracking() {
     await lookupTracking(value)
   }
 
-  const shipment = result?.shipment
+  const shipment = result
 
   return (
     <div className="min-h-screen">
@@ -246,18 +246,23 @@ export default function Tracking() {
                 <dd className="mt-1 font-medium text-slate-900">{formatDate(shipment.updatedAt)}</dd>
               </div>
             </dl>
+          <ProgressStrip
+  shipment={shipment}
+  events={result?.events || []}
+/>
 
-            <ProgressStrip shipment={shipment} events={result?.events} />
+<div className="mt-6 border-t border-slate-100 pt-5">
+  <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-slate-500">
+    Tracking history
+  </h3>
 
-            <div className="mt-6 border-t border-slate-100 pt-5">
-              <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-slate-500">
-                Tracking history
-              </h3>
-              <TrackingTable events={result?.events || []} />
-              <div className="sm:hidden">
-                <TrackingTimeline events={result?.events} />
-              </div>
-            </div>
+  <TrackingTable events={result?.events || []} />
+
+  <div className="sm:hidden">
+    <TrackingTimeline events={result?.events || []} />
+  </div>
+</div>
+         
           </section>
         )}
       </main>

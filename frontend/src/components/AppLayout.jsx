@@ -9,20 +9,30 @@ export default function AppLayout({ children }) {
   const location = useLocation()
   const canMonitor = ['LOGISTICS_OPERATOR', 'SUPPORT_AGENT', 'ADMINISTRATOR'].includes(user?.role)
   const canViewBusinessAccount = ['BUSINESS_CLIENT', 'ADMINISTRATOR'].includes(user?.role)
-
+const canViewBusinessAnalytics = user?.role === 'BUSINESS_CLIENT'
+const canViewAdminAnalytics = user?.role === 'ADMINISTRATOR'
   function handleLogout() {
     logout()
     navigate('/login', { replace: true })
   }
 
-  const links = [
-    { to: '/shipments', label: 'Shipments' },
-    { to: '/track', label: 'Track' },
-    { to: '/delays', label: 'Delays' },
-    ...(canMonitor ? [{ to: '/monitoring', label: 'Monitoring' }] : []),
-    ...(canViewBusinessAccount ? [{ to: '/business-account', label: 'Business account' }] : []),
-    { to: '/profile', label: 'Profile' },
-  ]
+ const links = [
+  { to: '/shipments', label: 'Shipments' },
+  { to: '/track', label: 'Track' },
+  { to: '/delays', label: 'Delays' },
+  ...(user?.role === 'CUSTOMER'
+    ? [{ to: '/dashboard/customer', label: 'Analytics' }]
+    : []),
+    ...(canViewBusinessAnalytics
+  ? [{ to: '/dashboard/business', label: 'Analytics' }]
+  : []),
+  ...(canViewAdminAnalytics
+  ? [{ to: '/dashboard/admin', label: 'Analytics' }]
+  : []),
+  ...(canMonitor ? [{ to: '/monitoring', label: 'Monitoring' }] : []),
+  ...(canViewBusinessAccount ? [{ to: '/business-account', label: 'Business account' }] : []),
+  { to: '/profile', label: 'Profile' },
+]
 
   function isActive(to) {
     return to === '/shipments'

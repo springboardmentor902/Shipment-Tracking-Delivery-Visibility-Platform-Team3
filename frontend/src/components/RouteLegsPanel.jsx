@@ -58,7 +58,15 @@ export default function RouteLegsPanel({ shipmentId, canManage = false, livePosi
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      setLegs(await routeService.listByShipment(shipmentId))
+     const data = await routeService.listByShipment(shipmentId)
+
+setLegs(
+  Array.isArray(data)
+    ? data
+    : data
+      ? [data]
+      : []
+)
       setError('')
     } catch (err) {
       if (err.response?.status === 404) setLegs([])
@@ -92,18 +100,17 @@ export default function RouteLegsPanel({ shipmentId, canManage = false, livePosi
     try {
       // Distance and duration are optional: the server fills them from Google
       // Maps, or estimates them when Maps is unavailable.
-      await routeService.create({
-        shipmentId: Number(shipmentId),
-        originAddress: form.originAddress.trim(),
-        destinationAddress: form.destinationAddress.trim(),
-        waypoints: form.waypoints.trim() || undefined,
-        driverId: form.driverId ? Number(form.driverId) : undefined,
-        distanceKm: form.distanceKm ? Number(form.distanceKm) : undefined,
-        expectedDurationMinutes: form.expectedDurationMinutes
-          ? Number(form.expectedDurationMinutes)
-          : undefined,
-        notes: form.notes.trim() || undefined,
-      })
+    await routeService.create({
+  shipmentId: Number(shipmentId),
+  origin: form.originAddress.trim(),
+  destination: form.destinationAddress.trim(),
+  waypoints: form.waypoints.trim() || undefined,
+  driverId: form.driverId ? Number(form.driverId) : undefined,
+  distanceKm: form.distanceKm ? Number(form.distanceKm) : undefined,
+  estimatedTimeMinutes: form.expectedDurationMinutes
+    ? Number(form.expectedDurationMinutes)
+    : undefined,
+})
       setForm(EMPTY_LEG)
       setShowForm(false)
       setNotice('Route leg added.')
@@ -135,7 +142,7 @@ export default function RouteLegsPanel({ shipmentId, canManage = false, livePosi
     setError('')
     setNotice('')
     try {
-      await routeService.update(legId, { status })
+      
       setNotice(`Leg moved to ${status.toLowerCase()}.`)
       await load()
     } catch (err) {
@@ -232,8 +239,8 @@ export default function RouteLegsPanel({ shipmentId, canManage = false, livePosi
                   </div>
 
                   <p className="mt-2 text-sm font-medium text-slate-900">
-                    {leg.originAddress} → {leg.destinationAddress}
-                  </p>
+  {leg.origin || 'Origin'} → {leg.destination || 'Destination'}
+</p>
                   {leg.waypoints && <p className="text-xs text-slate-500">via {leg.waypoints}</p>}
 
                   <dl className="mt-3 grid gap-3 text-sm sm:grid-cols-4">
@@ -246,13 +253,13 @@ export default function RouteLegsPanel({ shipmentId, canManage = false, livePosi
                     <div>
                       <dt className="text-slate-500">Duration</dt>
                       <dd className="font-medium text-slate-900">
-                        {formatDuration(leg.expectedDurationMinutes)}
+                       {formatDuration(leg.estimatedTimeMinutes)}
                       </dd>
                     </div>
                     <div>
                       <dt className="text-slate-500">With traffic</dt>
                       <dd className="font-medium text-slate-900">
-                        {formatDuration(leg.durationInTrafficMinutes)}
+                        {leg.trafficCondition || '—'}
                       </dd>
                     </div>
                     <div>

@@ -1,225 +1,409 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-
-const MAPS_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || ''
-
-let loaderPromise = null
-
-/**
- * Loads the Google Maps JS API once per page. Rejects when no key is set or the
- * script cannot be fetched, so callers can render a fallback instead.
- */
-function loadGoogleMaps() {
-  if (window.google?.maps) return Promise.resolve(window.google.maps)
-  if (!MAPS_KEY) return Promise.reject(new Error('missing-key'))
-  if (loaderPromise) return loaderPromise
-
-  loaderPromise = new Promise((resolve, reject) => {
-    const script = document.createElement('script')
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(MAPS_KEY)}`
-    script.async = true
-    script.defer = true
-    script.onload = () =>
-      window.google?.maps ? resolve(window.google.maps) : reject(new Error('load-failed'))
-    script.onerror = () => {
-      loaderPromise = null
-      reject(new Error('load-failed'))
-    }
-    document.head.appendChild(script)
-  })
-  return loaderPromise
-}
+import { useEffect, useRef, useState } from 'react'
+import Map from 'ol/Map'
+import View from 'ol/View'
+import TileLayer from 'ol/layer/Tile'
+import VectorLayer from 'ol/layer/Vector'
+import OSM from 'ol/source/OSM'
+import VectorSource from 'ol/source/Vector'
+import Feature from 'ol/Feature'
+import Point from 'ol/geom/Point'
+import LineString from 'ol/geom/LineString'
+import { fromLonLat } from 'ol/proj'
+import { Style, Circle, Fill, Stroke } from 'ol/style'
+import 'ol/ol.css'
 
 function toNumber(value) {
   const parsed = Number(value)
   return Number.isFinite(parsed) ? parsed : null
 }
 
-/** Pulls every drawable point out of the legs the backend returned. */
-function collectPoints(legs) {
-  return legs.map((leg) => {
-    const origin =
-      toNumber(leg.originLatitude) !== null && toNumber(leg.originLongitude) !== null
-        ? { lat: toNumber(leg.originLatitude), lng: toNumber(leg.originLongitude) }
-        : null
-    const destination =
-      toNumber(leg.destinationLatitude) !== null && toNumber(leg.destinationLongitude) !== null
-        ? { lat: toNumber(leg.destinationLatitude), lng: toNumber(leg.destinationLongitude) }
-        : null
-    const driver =
-      toNumber(leg.lastKnownLatitude) !== null && toNumber(leg.lastKnownLongitude) !== null
-        ? { lat: toNumber(leg.lastKnownLatitude), lng: toNumber(leg.lastKnownLongitude) }
-        : null
-    return { leg, origin, destination, driver }
+async function geocode(address) {
+  if (!address) return null
+
+  const response = await fetch(
+    `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(address)}`
+  )
+
+  if (!response.ok) {
+    throw new Error('Could not geocode address.')
+  }
+
+  const data = await response.json()
+
+  if (!data.length) {
+    return null
+  }
+
+  return {
+    latitude: Number(data[0].lat),
+    longitude: Number(data[0].lon),
+  }
+}
+
+async function getRoute(origin, destination) {
+  const url =
+    `https://router.project-osrm.org/route/v1/driving/` +
+    `${origin.longitude},${origin.latitude};` +
+    `${destination.longitude},${destination.latitude}` +
+    `?overview=full&geometries=geojson`
+
+  const response = await fetch(url)
+
+  if (!response.ok) {
+    throw new Error('Could not calculate route.')
+  }
+
+  const data = await response.json()
+
+  if (data.code !== 'Ok' || !data.routes?.length) {
+    throw new Error('No driving route found.')
+  }
+
+  return data.routes[0]
+}
+
+function createMarkerStyle(type) {
+  let fillColor = '#2563eb'
+
+  if (type === 'origin') {
+    fillColor = '#16a34a'
+  }
+
+  if (type === 'destination') {
+    fillColor = '#2563eb'
+  }
+
+  if (type === 'driver') {
+    fillColor = '#dc2626'
+  }
+
+  return new Style({
+    image: new Circle({
+      radius: 8,
+      fill: new Fill({
+        color: fillColor,
+      }),
+      stroke: new Stroke({
+        color: '#ffffff',
+        width: 3,
+      }),
+    }),
   })
 }
 
-/**
- * Route map for a shipment's legs.
- *
- * Falls back to a readable coordinate summary whenever the browser Maps key is
- * absent, the script is blocked, or the legs have not been geocoded yet — the
- * page must never look broken just because Maps is unavailable.
- */
-export default function RouteMap({ legs = [], livePosition = null, height = 320 }) {
-  const containerRef = useRef(null)
-  const [failure, setFailure] = useState(MAPS_KEY ? '' : 'missing-key')
+export default function RouteMap({
+  legs = [],
+  livePosition = null,
+  height = 320,
+}) {
+  const mapElementRef = useRef(null)
+  const mapRef = useRef(null)
+  const vectorSourceRef = useRef(null)
 
-  const points = useMemo(() => collectPoints(legs), [legs])
-  // a ping that just arrived over the socket, not yet reflected in the legs
-  const live = useMemo(() => {
-    if (!livePosition) return null
-    const lat = toNumber(livePosition.latitude)
-    const lng = toNumber(livePosition.longitude)
-    return lat === null || lng === null ? null : { lat, lng, label: livePosition.location }
-  }, [livePosition])
-
-  const hasCoordinates =
-    Boolean(live) || points.some((item) => item.origin || item.destination || item.driver)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
 
   useEffect(() => {
-    if (!hasCoordinates || !MAPS_KEY) return
-    let cancelled = false
+    if (!mapElementRef.current || mapRef.current) {
+      return
+    }
 
-    loadGoogleMaps()
-      .then((maps) => {
-        if (cancelled || !containerRef.current) return
+    const vectorSource = new VectorSource()
 
-        const map = new maps.Map(containerRef.current, {
-          zoom: 6,
-          center:
-            live || points[0]?.origin || points[0]?.destination || points[0]?.driver || { lat: 20.6, lng: 78.9 },
-          mapTypeControl: false,
-          streetViewControl: false,
-        })
-        const bounds = new maps.LatLngBounds()
+    vectorSourceRef.current = vectorSource
 
-        points.forEach(({ leg, origin, destination, driver }) => {
-          if (origin) {
-            new maps.Marker({
-              map,
-              position: origin,
-              label: String(leg.legNumber ?? ''),
-              title: `Leg ${leg.legNumber} start · ${leg.originAddress || ''}`,
-            })
-            bounds.extend(origin)
-          }
-          if (destination) {
-            new maps.Marker({
-              map,
-              position: destination,
-              title: `Leg ${leg.legNumber} end · ${leg.destinationAddress || ''}`,
-            })
-            bounds.extend(destination)
-          }
-          if (origin && destination) {
-            new maps.Polyline({
-              map,
-              path: [origin, destination],
-              strokeColor: leg.status === 'COMPLETED' ? '#94a3b8' : '#2563eb',
-              strokeOpacity: 0.9,
-              strokeWeight: 4,
-            })
-          }
-          if (driver) {
-            new maps.Marker({
-              map,
-              position: driver,
-              title: `Last known position · ${leg.driverName || 'driver'}`,
-              icon: {
-                path: maps.SymbolPath.CIRCLE,
-                scale: 7,
-                fillColor: '#16a34a',
-                fillOpacity: 1,
-                strokeColor: '#ffffff',
-                strokeWeight: 2,
-              },
-            })
-            bounds.extend(driver)
-          }
-        })
+    const vectorLayer = new VectorLayer({
+      source: vectorSource,
+    })
 
-        if (live) {
-          new maps.Marker({
-            map,
-            position: live,
-            zIndex: 999,
-            title: `Live position${live.label ? ` · ${live.label}` : ''}`,
-            icon: {
-              path: maps.SymbolPath.CIRCLE,
-              scale: 9,
-              fillColor: '#dc2626',
-              fillOpacity: 1,
-              strokeColor: '#ffffff',
-              strokeWeight: 3,
-            },
-          })
-          bounds.extend(live)
-        }
+    const map = new Map({
+      target: mapElementRef.current,
 
-        if (!bounds.isEmpty()) {
-          map.fitBounds(bounds, 48)
-        }
-      })
-      .catch((error) => {
-        if (!cancelled) setFailure(error.message || 'load-failed')
-      })
+      layers: [
+        new TileLayer({
+          source: new OSM(),
+        }),
+        vectorLayer,
+      ],
+
+      view: new View({
+        center: fromLonLat([78.9629, 20.5937]),
+        zoom: 5,
+      }),
+    })
+
+    mapRef.current = map
 
     return () => {
-      cancelled = true
+      map.setTarget(undefined)
+      mapRef.current = null
     }
-  }, [hasCoordinates, points, live])
+  }, [])
 
-  if (!hasCoordinates) {
-    return (
-      <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-600">
-        No coordinates yet. Add a route leg with an origin and destination address — the server
-        geocodes them, or you can type the latitude and longitude yourself.
-      </div>
-    )
-  }
+  useEffect(() => {
+    async function buildMap() {
+      if (!mapRef.current || !vectorSourceRef.current) {
+        return
+      }
 
-  if (failure) {
-    return (
-      <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-600">
-        <p className="font-medium text-slate-800">
-          {failure === 'missing-key'
-            ? 'Map preview is off because VITE_GOOGLE_MAPS_API_KEY is not set.'
-            : 'Google Maps could not be loaded, showing coordinates instead.'}
-        </p>
-        {live && (
-          <p className="mt-2 font-mono text-xs text-red-700">
-            live position {live.lat}, {live.lng}
-            {live.label ? ` · ${live.label}` : ''}
-          </p>
-        )}
-        <ul className="mt-3 space-y-2">
-          {points.map(({ leg, origin, destination, driver }) => (
-            <li key={leg.id} className="rounded border border-slate-200 bg-white p-2.5">
-              <p className="font-medium text-slate-900">
-                Leg {leg.legNumber}: {leg.originAddress} → {leg.destinationAddress}
-              </p>
-              <p className="mt-1 font-mono text-xs text-slate-500">
-                {origin ? `${origin.lat}, ${origin.lng}` : 'origin not geocoded'} →{' '}
-                {destination ? `${destination.lat}, ${destination.lng}` : 'destination not geocoded'}
-              </p>
-              {driver && (
-                <p className="mt-1 font-mono text-xs text-emerald-700">
-                  driver at {driver.lat}, {driver.lng}
-                </p>
-              )}
-            </li>
-          ))}
-        </ul>
-      </div>
-    )
-  }
+      vectorSourceRef.current.clear()
+
+      setError('')
+
+      if (!legs.length && !livePosition) {
+        return
+      }
+
+      setLoading(true)
+
+      try {
+        const allCoordinates = []
+
+        for (const leg of legs) {
+          let origin = null
+          let destination = null
+
+          // Use coordinates if backend already provides them
+          const originLat = toNumber(leg.originLatitude)
+          const originLng = toNumber(leg.originLongitude)
+
+          const destinationLat = toNumber(
+            leg.destinationLatitude
+          )
+          const destinationLng = toNumber(
+            leg.destinationLongitude
+          )
+
+          if (
+            originLat !== null &&
+            originLng !== null
+          ) {
+            origin = {
+              latitude: originLat,
+              longitude: originLng,
+            }
+          } else if (leg.origin) {
+            origin = await geocode(leg.origin)
+          } else if (leg.originAddress) {
+            origin = await geocode(leg.originAddress)
+          }
+
+          if (
+            destinationLat !== null &&
+            destinationLng !== null
+          ) {
+            destination = {
+              latitude: destinationLat,
+              longitude: destinationLng,
+            }
+          } else if (leg.destination) {
+            destination = await geocode(
+              leg.destination
+            )
+          } else if (leg.destinationAddress) {
+            destination = await geocode(
+              leg.destinationAddress
+            )
+          }
+
+          if (!origin || !destination) {
+            continue
+          }
+
+          const originPoint = fromLonLat([
+            origin.longitude,
+            origin.latitude,
+          ])
+
+          const destinationPoint = fromLonLat([
+            destination.longitude,
+            destination.latitude,
+          ])
+
+          const originFeature = new Feature({
+            geometry: new Point(originPoint),
+          })
+
+          originFeature.setStyle(
+            createMarkerStyle('origin')
+          )
+
+          const destinationFeature = new Feature({
+            geometry: new Point(destinationPoint),
+          })
+
+          destinationFeature.setStyle(
+            createMarkerStyle('destination')
+          )
+
+          vectorSourceRef.current.addFeature(
+            originFeature
+          )
+
+          vectorSourceRef.current.addFeature(
+            destinationFeature
+          )
+
+          allCoordinates.push(originPoint)
+          allCoordinates.push(destinationPoint)
+
+          // Get actual road route from OSRM
+          try {
+            const route = await getRoute(
+              origin,
+              destination
+            )
+
+            const routeCoordinates =
+              route.geometry.coordinates.map(
+                ([longitude, latitude]) =>
+                  fromLonLat([
+                    longitude,
+                    latitude,
+                  ])
+              )
+
+            const routeFeature = new Feature({
+              geometry: new LineString(
+                routeCoordinates
+              ),
+            })
+
+            routeFeature.setStyle(
+              new Style({
+                stroke: new Stroke({
+                  color:
+                    leg.status === 'COMPLETED'
+                      ? '#94a3b8'
+                      : '#2563eb',
+                  width: 5,
+                }),
+              })
+            )
+
+            vectorSourceRef.current.addFeature(
+              routeFeature
+            )
+
+            allCoordinates.push(
+              ...routeCoordinates
+            )
+          } catch (routeError) {
+            console.warn(
+              'OSRM route calculation failed:',
+              routeError
+            )
+
+            // Draw straight line as fallback
+            const fallbackLine = new Feature({
+              geometry: new LineString([
+                originPoint,
+                destinationPoint,
+              ]),
+            })
+
+            fallbackLine.setStyle(
+              new Style({
+                stroke: new Stroke({
+                  color: '#2563eb',
+                  width: 4,
+                  lineDash: [8, 8],
+                }),
+              })
+            )
+
+            vectorSourceRef.current.addFeature(
+              fallbackLine
+            )
+          }
+        }
+
+        // Live driver position
+        if (livePosition) {
+          const lat = toNumber(
+            livePosition.latitude
+          )
+
+          const lng = toNumber(
+            livePosition.longitude
+          )
+
+          if (lat !== null && lng !== null) {
+            const driverPoint = fromLonLat([
+              lng,
+              lat,
+            ])
+
+            const driverFeature = new Feature({
+              geometry: new Point(driverPoint),
+            })
+
+            driverFeature.setStyle(
+              createMarkerStyle('driver')
+            )
+
+            vectorSourceRef.current.addFeature(
+              driverFeature
+            )
+
+            allCoordinates.push(driverPoint)
+          }
+        }
+
+        // Fit map to route
+        if (allCoordinates.length) {
+          const extent =
+            vectorSourceRef.current.getExtent()
+
+          mapRef.current.getView().fit(extent, {
+            padding: [40, 40, 40, 40],
+            maxZoom: 12,
+            duration: 500,
+          })
+        }
+      } catch (err) {
+        console.error(err)
+
+        setError(
+          err.message ||
+            'Could not load the OpenStreetMap route.'
+        )
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    buildMap()
+  }, [legs, livePosition])
 
   return (
     <div
-      ref={containerRef}
       style={{ height }}
-      className="w-full overflow-hidden rounded-lg border border-slate-200 bg-slate-100"
-      aria-label="Route map"
-    />
+      className="relative w-full overflow-hidden rounded-lg border border-slate-200"
+    >
+      <div
+        ref={mapElementRef}
+        style={{
+          width: '100%',
+          height: '100%',
+        }}
+      />
+
+      {loading && (
+        <div className="absolute left-3 top-3 rounded-md bg-white px-3 py-2 text-sm shadow">
+          Loading route…
+        </div>
+      )}
+
+      {error && (
+        <div className="absolute left-3 right-3 top-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 shadow">
+          {error}
+        </div>
+      )}
+
+      <div className="absolute bottom-0 left-0 right-0 bg-white px-3 py-2 text-xs text-slate-500">
+        © OpenStreetMap contributors
+      </div>
+    </div>
   )
 }

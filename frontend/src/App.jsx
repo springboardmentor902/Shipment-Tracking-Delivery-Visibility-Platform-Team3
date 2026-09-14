@@ -1,4 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
+import CustomerDashboard from './pages/CustomerDashboard'
+import BusinessDashboard from './pages/BusinessDashboard'
+import AdminDashboard from './pages/AdminDashboard'
 import Login from './pages/Login'
 import Register from './pages/Register'
 import ShipmentList from './pages/ShipmentList'
@@ -16,10 +19,12 @@ import BusinessAccount from './pages/BusinessAccount'
 import NotFound from './pages/NotFound'
 import ProtectedRoute from './routes/ProtectedRoute'
 import Home from './pages/Home'
+import Reports from "./pages/Reports";
 
 export default function App() {
   return (
     <Routes>
+    <Route path="/reports" element={<Reports />} />
       <Route path="/" element={<Home />} />
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
@@ -28,6 +33,9 @@ export default function App() {
       <Route path="/reset-password" element={<ResetPassword />} />
 
       <Route element={<ProtectedRoute />}>
+        <Route path="/dashboard/customer" element={<CustomerDashboard />} />
+        <Route path="/dashboard/business" element={<BusinessDashboard />} />
+        <Route path="/dashboard/admin" element={<AdminDashboard />} />
         <Route path="/dashboard" element={<Navigate to="/shipments" replace />} />
         <Route path="/shipments" element={<ShipmentList />} />
         <Route path="/shipments/:id" element={<ShipmentDetail />} />
@@ -37,7 +45,7 @@ export default function App() {
         <Route path="/notifications" element={<Notifications />} />
       </Route>
 
-      <Route element={<ProtectedRoute allowedRoles={['BUSINESS_CLIENT', 'LOGISTICS_OPERATOR']} />}>
+<Route element={<ProtectedRoute allowedRoles={['CUSTOMER', 'BUSINESS_CLIENT']} />}>
         <Route path="/shipments/new" element={<ShipmentCreate />} />
       </Route>
 

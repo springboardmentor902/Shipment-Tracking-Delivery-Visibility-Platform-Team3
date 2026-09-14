@@ -4,35 +4,52 @@ import AppLayout from '../components/AppLayout'
 import StatusBadge from '../components/StatusBadge'
 import { useAuth } from '../context/AuthContext'
 import { extractErrorMessage } from '../services/api'
-import { CAN_CREATE_ROLES, SHIPMENT_STATUSES, shipmentService } from '../services/shipmentService'
+import { shipmentService } from '../services/shipmentService'
 
 export default function ShipmentList() {
   const { user } = useAuth()
-  const [page, setPage] = useState(0)
   const [statusFilter, setStatusFilter] = useState('')
-  const [data, setData] = useState(null)
+  const [shipments, setShipments] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
-  const canCreate = CAN_CREATE_ROLES.includes(user?.role)
+  const canCreate = ['CUSTOMER', 'BUSINESS_CLIENT'].includes(user?.role)
 
   const load = useCallback(async () => {
     setLoading(true)
     setError('')
+
     try {
-      setData(await shipmentService.list({ status: statusFilter, page, size: 10 }))
+      const data = await shipmentService.list()
+
+      const shipmentList = Array.isArray(data) ? data : []
+
+      const filtered = statusFilter
+        ? shipmentList.filter((shipment) => shipment.status === statusFilter)
+        : shipmentList
+
+      setShipments(filtered)
     } catch (err) {
       setError(extractErrorMessage(err, 'Could not load shipments.'))
+      setShipments([])
     } finally {
       setLoading(false)
     }
-  }, [statusFilter, page])
+  }, [statusFilter])
 
   useEffect(() => {
     load()
   }, [load])
 
-  const shipments = data?.content || []
+  const statuses = [
+    'CREATED',
+    'PICKED_UP',
+    'IN_TRANSIT',
+    'OUT_FOR_DELIVERY',
+    'DELIVERED',
+    'FAILED_DELIVERY',
+    'CANCELLED',
+  ]
 
   return (
     <AppLayout>
@@ -49,15 +66,12 @@ export default function ShipmentList() {
         <div className="flex items-center gap-3">
           <select
             value={statusFilter}
-            onChange={(event) => {
-              setStatusFilter(event.target.value)
-              setPage(0)
-            }}
-            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none
-                       focus:border-brand-500 focus:ring-2 focus:ring-brand-500/30"
+            onChange={(event) => setStatusFilter(event.target.value)}
+            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none"
           >
             <option value="">All statuses</option>
-            {SHIPMENT_STATUSES.map((status) => (
+
+            {statuses.map((status) => (
               <option key={status} value={status}>
                 {status.replaceAll('_', ' ')}
               </option>
@@ -76,7 +90,10 @@ export default function ShipmentList() {
       </div>
 
       {error && (
-        <div role="alert" className="mb-4 rounded-lg bg-red-50 px-3.5 py-2.5 text-sm text-red-700">
+        <div
+          role="alert"
+          className="mb-4 rounded-lg bg-red-50 px-3.5 py-2.5 text-sm text-red-700"
+        >
           {error}
         </div>
       )}
@@ -88,12 +105,13 @@ export default function ShipmentList() {
               <th className="px-4 py-3 font-medium">Tracking</th>
               <th className="px-4 py-3 font-medium">Status</th>
               <th className="px-4 py-3 font-medium">Receiver</th>
-              <th className="px-4 py-3 font-medium">Priority</th>
-              <th className="px-4 py-3 font-medium">Packages</th>
-              <th className="px-4 py-3 font-medium">ETA</th>
+              <th className="px-4 py-3 font-medium">Package</th>
+              <th className="px-4 py-3 font-medium">Weight</th>
+              <th className="px-4 py-3 font-medium">Created</th>
               <th className="px-4 py-3" />
             </tr>
           </thead>
+
           <tbody className="divide-y divide-slate-100">
             {loading && (
               <tr>
@@ -106,11 +124,17 @@ export default function ShipmentList() {
             {!loading && shipments.length === 0 && (
               <tr>
                 <td colSpan={7} className="px-4 py-10 text-center text-slate-500">
-                  No shipments yet.{' '}
+                  No shipments found.
                   {canCreate && (
-                    <Link to="/shipments/new" className="font-medium text-brand-600">
-                      Create the first one
-                    </Link>
+                    <>
+                      {' '}
+                      <Link
+                        to="/shipments/new"
+                        className="font-medium text-brand-600"
+                      >
+                        Create one
+                      </Link>
+                    </>
                   )}
                 </td>
               </tr>
@@ -118,22 +142,43 @@ export default function ShipmentList() {
 
             {!loading &&
               shipments.map((shipment) => (
-                <tr key={shipment.id} className="hover:bg-slate-50">
+                <tr
+                  key={shipment.id}
+                  className="hover:bg-slate-50"
+                >
                   <td className="px-4 py-3 font-mono text-xs text-slate-900">
                     {shipment.trackingNumber}
                   </td>
+
                   <td className="px-4 py-3">
                     <StatusBadge status={shipment.status} />
                   </td>
-                  <td className="px-4 py-3 text-slate-700">{shipment.receiverName}</td>
-                  <td className="px-4 py-3 text-slate-500">{shipment.priority}</td>
-                  <td className="px-4 py-3 text-slate-500">{shipment.totalPackages}</td>
-                  <td className="px-4 py-3 text-slate-500">
-                    {shipment.actualDeliveryDate || shipment.estimatedDeliveryDate || '—'}
+
+                  <td className="px-4 py-3 text-slate-700">
+                    {shipment.receiverName || '—'}
                   </td>
+
+                  <td className="px-4 py-3 text-slate-500">
+                    {shipment.packageDescription || '—'}
+                  </td>
+
+                  <td className="px-4 py-3 text-slate-500">
+                    {shipment.weightKg != null
+                      ? `${shipment.weightKg} kg`
+                      : '—'}
+                  </td>
+
+                  <td className="px-4 py-3 text-slate-500">
+                    {shipment.createdAt
+                      ? new Date(shipment.createdAt).toLocaleDateString()
+                      : '—'}
+                  </td>
+
                   <td className="px-4 py-3 text-right">
                     <Link
-                      to={`/shipments/${shipment.id}`}
+                      to={`/shipments/${encodeURIComponent(
+                        shipment.trackingNumber
+                      )}`}
                       className="font-medium text-brand-600 hover:text-brand-700"
                     >
                       View
@@ -144,32 +189,6 @@ export default function ShipmentList() {
           </tbody>
         </table>
       </div>
-
-      {data && data.totalPages > 1 && (
-        <div className="mt-4 flex items-center justify-between text-sm text-slate-500">
-          <span>
-            Page {data.number + 1} of {data.totalPages} · {data.totalElements} total
-          </span>
-          <div className="flex gap-2">
-            <button
-              onClick={() => setPage((p) => Math.max(0, p - 1))}
-              disabled={data.number === 0}
-              className="rounded-lg border border-slate-300 px-3 py-1.5 font-medium text-slate-700
-                         hover:bg-white disabled:opacity-50"
-            >
-              Previous
-            </button>
-            <button
-              onClick={() => setPage((p) => p + 1)}
-              disabled={data.number + 1 >= data.totalPages}
-              className="rounded-lg border border-slate-300 px-3 py-1.5 font-medium text-slate-700
-                         hover:bg-white disabled:opacity-50"
-            >
-              Next
-            </button>
-          </div>
-        </div>
-      )}
     </AppLayout>
   )
 }
