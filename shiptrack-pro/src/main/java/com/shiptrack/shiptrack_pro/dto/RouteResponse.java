@@ -26,4 +26,8 @@ public class RouteResponse {
     private String trafficCondition;
 
     private Long driverId;
+
+    private Boolean isCurrent;
+
+    private String status;
 }

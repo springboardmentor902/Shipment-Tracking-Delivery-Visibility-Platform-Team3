@@ -1,7 +1,11 @@
 package com.shiptrack.shiptrack_pro.entity;
 
 import jakarta.persistence.*;
-import lombok.*;
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 
@@ -17,19 +21,20 @@ public class ETAPrediction {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // Prediction belongs to one shipment
     @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "shipment_id", nullable = false, unique = true)
+    @JoinColumn(
+            name = "shipment_id",
+            nullable = false,
+            unique = true
+    )
     private Shipment shipment;
 
     @Column(name = "predicted_delivery_time")
     private LocalDateTime predictedDeliveryTime;
 
-    // Range: 0 to 10
     @Column(name = "delay_risk_score")
     private Double delayRiskScore;
 
-    // Range: 0 to 100
     @Column(name = "confidence_score")
     private Double confidenceScore;
 
