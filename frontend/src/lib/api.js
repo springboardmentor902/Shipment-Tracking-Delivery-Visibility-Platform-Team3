@@ -1,9 +1,8 @@
 import axios from "axios";
 
 export const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL ||
+  import.meta.env.VITE_API_BASE_URL ||
   "https://shiptrack-backend-rv62.onrender.com";
-
 
 export const TOKEN_KEY = "shiptrack_token";
 export const EMAIL_KEY = "shiptrack_email";
@@ -22,26 +21,14 @@ export function clearAuth() {
 }
 
 export function getStoredToken() {
-  if (typeof window === "undefined") {
-    return null;
-  }
-
   return localStorage.getItem(TOKEN_KEY);
 }
 
 export function getStoredEmail() {
-  if (typeof window === "undefined") {
-    return null;
-  }
-
   return localStorage.getItem(EMAIL_KEY);
 }
 
 export function getStoredRole() {
-  if (typeof window === "undefined") {
-    return null;
-  }
-
   return localStorage.getItem(ROLE_KEY);
 }
 
@@ -53,44 +40,31 @@ const api = axios.create({
 });
 
 api.interceptors.request.use((config) => {
-  if (typeof window !== "undefined") {
-    const token = localStorage.getItem(TOKEN_KEY);
+  const token = getStoredToken();
 
-    if (token) {
-      config.headers = config.headers || {};
-      config.headers.Authorization = `Bearer ${token}`;
-    }
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
   }
+
+  console.log("API REQUEST:", {
+    method: config.method,
+    url: `${config.baseURL}${config.url}`,
+  });
 
   return config;
 });
 
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    console.log("API RESPONSE:", response.status, response.config.url);
+    return response;
+  },
   (error) => {
-    const status = error.response?.status;
-
-    if (status === 401) {
-      console.error("Unauthorized request.");
-    }
-
-    if (status === 403) {
-      console.error("Forbidden request. Check user role.");
-    }
-
-    if (status === 404) {
-      console.error(
-        "API endpoint not found:",
-        error.config?.url
-      );
-    }
-
-    if (!error.response) {
-      console.error(
-        "Backend server cannot be reached."
-      );
-    }
-
+    console.error("AXIOS ERROR:", error);
+    console.error("REQUEST URL:", error.config?.url);
+    console.error("BASE URL:", error.config?.baseURL);
+    console.error("ERROR MESSAGE:", error.message);
+    console.error("ERROR RESPONSE:", error.response);
     return Promise.reject(error);
   }
 );

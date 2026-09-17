@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { API_BASE_URL, storeAuth } from "@/lib/api";
+import { API_BASE_URL, storeAuth } from "../../src/lib/api";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -34,7 +34,7 @@ export default function LoginPage() {
       storeAuth(data.token, data.user.email, data.user.role);
       router.push("/shipments/new");
     } catch (err) {
-      setError("Could not reach the backend. Is it running on port 8080?");
+      setError("Could not reach the backend. Please try again.");
     } finally {
       setLoading(false);
     }
