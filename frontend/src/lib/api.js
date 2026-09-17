@@ -1,6 +1,8 @@
 import axios from "axios";
 
-export const API_BASE_URL = "https://shiptrack-backend-rv62.onrender.com/api";
+const API_BASE_URL =
+  "https://shiptrack-backend-rv62.onrender.com/api";
+
 
 export const TOKEN_KEY = "shiptrack_token";
 export const EMAIL_KEY = "shiptrack_email";
